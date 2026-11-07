@@ -1,0 +1,35 @@
+Simulacion con GHDL 4.1.0 (ghdl -fsynopsys -fexplicit), testbench sim/tb_det_bareiss.vhd con MAX_MATRIZ = 7
+Fecha: 2026-11-07
+
+Matriz 0 (2x2): det  display=' 0000026' desborde='0'  ciclos=415  OK
+           pivote 1  display=' 0000007'  OK
+Matriz 1 (3x3): det  display=' 0000003' desborde='0'  ciclos=442  OK
+           pivote 1  display=' 0000002'  OK
+           pivote 2  display=' 0000007'  OK
+Matriz 2 (4x4): det  display='-0000022' desborde='0'  ciclos=627  OK
+           pivote 1  display=' 0000002'  OK
+           pivote 2  display=' 0000004'  OK
+           pivote 3  display=' 0000013'  OK
+Matriz 3 (5x5): det  display=' 0000362' desborde='0'  ciclos=4203  OK
+           pivote 1  display=' 0000004'  OK
+           pivote 2  display=' 0000020'  OK
+           pivote 3  display='-0000170'  OK
+           pivote 4  display='-0000639'  OK
+Matriz 4 (3x3): det  display=' 0000050' desborde='0'  ciclos=520  OK
+           pivote 1  display='-0000002'  OK
+           pivote 2  display='-0000010'  OK
+Matriz 5 (4x4): det  display=' 0000150' desborde='0'  ciclos=807  OK
+           pivote 1  display=' 0000001'  OK
+           pivote 2  display='-0000005'  OK
+           pivote 3  display=' 0000025'  OK
+Matriz 6 (5x5): det  display=' 0000000' desborde='0'  ciclos=403  OK
+           pivote 1  display=' 0000000'  OK
+           pivote 2  display=' 0000000'  OK
+           pivote 3  display=' 0000000'  OK
+           pivote 4  display=' 0000000'  OK
+Matriz 7 (5x5): det  display='-7121828' desborde='1'  ciclos=19013425  OK
+           pivote 1  display=' 0000030'  OK
+           pivote 2  display='-0001359'  OK
+           pivote 3  display=' 0022146'  OK
+           pivote 4  display=' 0277564'  OK
+TODAS LAS PRUEBAS PASARON

@@ -1,0 +1,45 @@
+## Restricciones para ISE 14.7 - Nexys A7-100T (XC7A100T-1CSG324C)
+## Pines tomados del Nexys A7 Reference Manual (Digilent), figura 9.1.
+## Entidad superior: det_bareiss
+
+## Reloj de 100 MHz
+NET "clk" LOC = "E3" | IOSTANDARD = "LVCMOS33";
+NET "clk" TNM_NET = "sys_clk";
+TIMESPEC "TS_sys_clk" = PERIOD "sys_clk" 10 ns HIGH 50 %;
+
+## Botones (activos en alto)
+NET "rst"    LOC = "M18" | IOSTANDARD = "LVCMOS33";   # BTNU
+NET "inicio" LOC = "N17" | IOSTANDARD = "LVCMOS33";   # BTNC
+
+## Switches: direccion del banco de pivotes (0 = determinante)
+NET "sw_piv<0>" LOC = "J15" | IOSTANDARD = "LVCMOS33";   # SW0
+NET "sw_piv<1>" LOC = "L16" | IOSTANDARD = "LVCMOS33";   # SW1
+NET "sw_piv<2>" LOC = "M13" | IOSTANDARD = "LVCMOS33";   # SW2
+
+## Switches: matriz de prueba (pagina de la ROM)
+NET "sw_mat<0>" LOC = "U12" | IOSTANDARD = "LVCMOS33";   # SW13
+NET "sw_mat<1>" LOC = "U11" | IOSTANDARD = "LVCMOS33";   # SW14
+NET "sw_mat<2>" LOC = "V10" | IOSTANDARD = "LVCMOS33";   # SW15
+
+## LEDs
+NET "final"    LOC = "H17" | IOSTANDARD = "LVCMOS33";    # LD0
+NET "desborde" LOC = "K15" | IOSTANDARD = "LVCMOS33";    # LD1
+
+## Display de 7 segmentos (catodos y anodos activos en bajo)
+NET "seg<0>" LOC = "T10" | IOSTANDARD = "LVCMOS33";      # CA
+NET "seg<1>" LOC = "R10" | IOSTANDARD = "LVCMOS33";      # CB
+NET "seg<2>" LOC = "K16" | IOSTANDARD = "LVCMOS33";      # CC
+NET "seg<3>" LOC = "K13" | IOSTANDARD = "LVCMOS33";      # CD
+NET "seg<4>" LOC = "P15" | IOSTANDARD = "LVCMOS33";      # CE
+NET "seg<5>" LOC = "T11" | IOSTANDARD = "LVCMOS33";      # CF
+NET "seg<6>" LOC = "L18" | IOSTANDARD = "LVCMOS33";      # CG
+NET "dp"     LOC = "H15" | IOSTANDARD = "LVCMOS33";      # DP
+
+NET "an<0>" LOC = "J17" | IOSTANDARD = "LVCMOS33";
+NET "an<1>" LOC = "J18" | IOSTANDARD = "LVCMOS33";
+NET "an<2>" LOC = "T9"  | IOSTANDARD = "LVCMOS33";
+NET "an<3>" LOC = "J14" | IOSTANDARD = "LVCMOS33";
+NET "an<4>" LOC = "P14" | IOSTANDARD = "LVCMOS33";
+NET "an<5>" LOC = "T14" | IOSTANDARD = "LVCMOS33";
+NET "an<6>" LOC = "K2"  | IOSTANDARD = "LVCMOS33";
+NET "an<7>" LOC = "U13" | IOSTANDARD = "LVCMOS33";

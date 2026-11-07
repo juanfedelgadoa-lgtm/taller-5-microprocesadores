@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+
+# Simulacion (GHDL / ISim)
+*.cf
+*.o
+work/
+isim/
+*.wdb
+fuse*.log
+isim*.log
+
+# Archivos generados por ISE
+_xmsgs/
+xst/
+_ngo/
+xlnx_auto_0_xdb/
+iseconfig/
+*.xise.bak
+*.ngc
+*.ngd
+*.ncd
+*.pcf
+*.bld
+*.map
+*.mrp
+*.par
+*.twr
+*.twx
+*.syr
+*.lso
+*.xrpt
+*.cmd_log
+*.gise
+*.stx
+*.ptwx
+*.unroutes
+*.xpi
+*.bgn
+*.drc
+*_summary.html
+*_summary.xml
+webtalk*
+usage_statistics_webtalk.html
