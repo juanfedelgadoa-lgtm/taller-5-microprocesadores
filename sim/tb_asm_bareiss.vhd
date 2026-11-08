@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------------------
--- Testbench del procesador (unidad de control + camino de datos)
+-- Testbench del ASM (entidad asm_bareiss)
 --
 -- Para cada matriz de la ROM:
 --   1. Pulsa "inicio" y espera "final".
@@ -16,13 +16,13 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.std_logic_arith.all;
 use ieee.std_logic_unsigned.all;
 
-entity tb_procesador is
+entity tb_asm_bareiss is
     generic ( MAX_MATRIZ : integer := 6 );
-end tb_procesador;
+end tb_asm_bareiss;
 
-architecture sim of tb_procesador is
+architecture sim of tb_asm_bareiss is
 
-    component procesador
+    component asm_bareiss
         Port ( clk, rst : in  STD_LOGIC;
                inicio   : in  STD_LOGIC;
                sw_mat   : in  STD_LOGIC_VECTOR (2 downto 0);
@@ -96,7 +96,7 @@ architecture sim of tb_procesador is
 
 begin
 
-    uut: procesador port map (
+    uut: asm_bareiss port map (
         clk => clk, rst => rst, inicio => inicio, sw_mat => sw_mat, sw_piv => sw_piv,
         final => final, disp_bcd => disp_bcd, disp_neg => disp_neg, desborde => desborde);
 

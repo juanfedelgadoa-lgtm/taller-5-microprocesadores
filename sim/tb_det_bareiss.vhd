@@ -4,7 +4,7 @@
 -- Calcula la matriz de la pagina 3 (5x5, det = 362) y lee los 8 digitos
 -- decodificando an/seg, igual que el ojo. Luego elige el pivote 3 (-170).
 -- El barrido del display dura 2^18 ciclos (2,6 ms), por eso solo se prueba una
--- matriz; las 8 matrices se prueban en tb_procesador.
+-- matriz; las 8 matrices se prueban en tb_asm_bareiss.
 --
 -- Solo para simulacion (usa variables, procedimientos y wait).
 ----------------------------------------------------------------------------------
