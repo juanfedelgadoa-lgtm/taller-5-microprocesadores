@@ -1,39 +1,36 @@
 ----------------------------------------------------------------------------------
--- Testbench del tope det_bareiss (incluye sincronizador y display)
+-- Testbench del Taller 5: determinante por Bareiss + XS3
 --
--- Calcula la matriz de la pagina 3 (5x5, det = 362) y lee los 8 digitos
--- decodificando an/seg, igual que el ojo. Luego elige el pivote 3 (-170).
--- El barrido del display dura 2^18 ciclos (2,6 ms), por eso solo se prueba una
--- matriz; las 8 matrices se prueban en tb_procesador.
+-- Para cada una de las 8 matrices de la ROM:
+--   1. Pulsa "inicio" y espera "final".
+--   2. Lee los 8 digitos del display decodificando an/seg (igual que el ojo).
+--   3. Compara con el valor del modelo de referencia (modelo_referencia.py).
+--   4. Recorre los pivotes con sw_piv = 1..n-1 y los compara.
 --
--- Solo para simulacion (usa variables, procedimientos y wait).
+-- El refresco del display se acelera con N_REF = 5 para simular rapido.
+-- (El testbench si usa variables; la restriccion de "solo senales" aplica al
+--  diseno, no al banco de pruebas.)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
 
 entity tb_det_bareiss is
+    -- MAX_MATRIZ = 6 prueba las paginas 0..6 (~0,2 ms simulados).
+    -- MAX_MATRIZ = 7 agrega la 5x5 extrema: ~19 millones de ciclos de
+    -- division (190 ms simulados), lento en ISim.
+    generic ( MAX_MATRIZ : integer := 6 );
 end tb_det_bareiss;
 
 architecture sim of tb_det_bareiss is
 
-    component det_bareiss
-        Port ( clk, rst : in  STD_LOGIC;
-               inicio   : in  STD_LOGIC;
-               sw_mat   : in  STD_LOGIC_VECTOR (2 downto 0);
-               sw_piv   : in  STD_LOGIC_VECTOR (2 downto 0);
-               final    : out STD_LOGIC;
-               desborde : out STD_LOGIC;
-               an       : out STD_LOGIC_VECTOR (7 downto 0);
-               seg      : out STD_LOGIC_VECTOR (6 downto 0);
-               dp       : out STD_LOGIC);
-    end component;
-
-    constant T : time := 10 ns;
+    constant T : time := 10 ns;                    -- 100 MHz
 
     signal clk      : std_logic := '0';
     signal rst      : std_logic := '0';
     signal inicio   : std_logic := '0';
-    signal sw_mat   : std_logic_vector(2 downto 0) := "011";   -- pagina 3
+    signal sw_mat   : std_logic_vector(2 downto 0) := "000";
     signal sw_piv   : std_logic_vector(2 downto 0) := "000";
     signal final    : std_logic;
     signal desborde : std_logic;
@@ -43,6 +40,25 @@ architecture sim of tb_det_bareiss is
     signal fin_sim  : boolean := false;
 
     subtype txt8 is string(1 to 8);
+    type txt_arr is array (1 to 4) of txt8;
+    type caso_t is record
+        n    : integer;
+        det  : txt8;
+        desb : std_logic;
+        piv  : txt_arr;
+    end record;
+    type casos_t is array (0 to 7) of caso_t;
+
+    -- Valores esperados (salida de modelo_referencia.py)
+    constant CASOS : casos_t := (
+        0 => (2, " 0000026", '0', (" 0000007", " 0000000", " 0000000", " 0000000")),
+        1 => (3, " 0000003", '0', (" 0000002", " 0000007", " 0000000", " 0000000")),
+        2 => (4, "-0000022", '0', (" 0000002", " 0000004", " 0000013", " 0000000")),
+        3 => (5, " 0000362", '0', (" 0000004", " 0000020", "-0000170", "-0000639")),
+        4 => (3, " 0000050", '0', ("-0000002", "-0000010", " 0000000", " 0000000")),
+        5 => (4, " 0000150", '0', (" 0000001", "-0000005", " 0000025", " 0000000")),
+        6 => (5, " 0000000", '0', (" 0000000", " 0000000", " 0000000", " 0000000")),
+        7 => (5, "-7121828", '1', (" 0000030", "-0001359", " 0022146", " 0277564")));
 
     function decodifica(s : std_logic_vector(6 downto 0)) return character is
     begin
@@ -65,22 +81,26 @@ architecture sim of tb_det_bareiss is
 
 begin
 
-    uut: det_bareiss port map (
-        clk => clk, rst => rst, inicio => inicio, sw_mat => sw_mat, sw_piv => sw_piv,
-        final => final, desborde => desborde, an => an, seg => seg, dp => dp);
+    uut: entity work.det_bareiss
+        generic map (N_REF => 5)
+        port map (clk => clk, rst => rst, inicio => inicio,
+                  sw_mat => sw_mat, sw_piv => sw_piv,
+                  final => final, desborde => desborde,
+                  an => an, seg => seg, dp => dp);
 
     clk <= not clk after T/2 when not fin_sim else '0';
 
     estimulos: process
         variable txt     : txt8;
         variable errores : integer := 0;
+        variable ciclos  : integer;
 
-        -- Lee el display durante un barrido completo (2^18 ciclos) y un poco mas
+        -- Lee el display durante dos barridos completos (2 x 32 ciclos)
         procedure lee_display(texto : out txt8) is
             variable tt : txt8;
         begin
             tt := (others => '?');
-            for c in 1 to 270000 loop
+            for c in 1 to 80 loop
                 wait until falling_edge(clk);
                 for dd in 0 to 7 loop
                     if an(dd) = '0' then
@@ -91,35 +111,72 @@ begin
             texto := tt;
         end procedure;
 
+        -- Espera final = '1' contando ciclos
+        procedure espera_final(maximo : integer; c : out integer) is
+            variable cc : integer := 0;
+        begin
+            while final /= '1' and cc < maximo loop
+                wait until rising_edge(clk);
+                cc := cc + 1;
+            end loop;
+            c := cc;
+        end procedure;
+
     begin
         rst <= '1';
         wait for 5 * T;
         rst <= '0';
         wait for 5 * T;
 
-        inicio <= '1';
-        wait for 4 * T;
-        inicio <= '0';
-        wait until final = '1' for 1 ms;
+        for m in 0 to MAX_MATRIZ loop
+            -- 1. Seleccion de matriz y pulso de inicio
+            sw_mat <= conv_std_logic_vector(m, 3);
+            sw_piv <= "000";
+            wait for 5 * T;
+            inicio <= '1';
+            wait for 4 * T;
+            inicio <= '0';
+            wait for 4 * T;
+            assert final = '0' report "final no bajo al iniciar" severity error;
 
-        lee_display(txt);
-        if txt = " 0000362" and final = '1' and desborde = '0' and dp = '1' then
-            report "Display det     = '" & txt & "'  OK";
-        else
-            report "Display det     = '" & txt & "'  esperado ' 0000362'  ERROR" severity error;
-            errores := errores + 1;
-        end if;
+            -- 2. Espera el resultado
+            espera_final(40000000, ciclos);
+            if final /= '1' then
+                report "Matriz " & integer'image(m) & ": TIEMPO AGOTADO" severity error;
+                errores := errores + 1;
+            end if;
 
-        sw_piv <= "011";                       -- pivote 3
-        wait for 10 * T;
-        wait until final = '1' for 1 ms;
-        lee_display(txt);
-        if txt = "-0000170" then
-            report "Display pivote3 = '" & txt & "'  OK";
-        else
-            report "Display pivote3 = '" & txt & "'  esperado '-0000170'  ERROR" severity error;
-            errores := errores + 1;
-        end if;
+            -- 3. Determinante en el display
+            lee_display(txt);
+            if txt = CASOS(m).det and desborde = CASOS(m).desb then
+                report "Matriz " & integer'image(m) & " (" & integer'image(CASOS(m).n) & "x" &
+                       integer'image(CASOS(m).n) & "): det  display='" & txt & "' desborde=" &
+                       std_logic'image(desborde) & "  ciclos=" & integer'image(ciclos) & "  OK";
+            else
+                report "Matriz " & integer'image(m) & ": det  display='" & txt &
+                       "' esperado='" & CASOS(m).det & "' desborde=" & std_logic'image(desborde) &
+                       "  ERROR" severity error;
+                errores := errores + 1;
+            end if;
+
+            -- 4. Pivotes del banco de registros
+            for kk in 1 to CASOS(m).n - 1 loop
+                sw_piv <= conv_std_logic_vector(kk, 3);
+                wait for 8 * T;
+                espera_final(2000, ciclos);
+                lee_display(txt);
+                if txt = CASOS(m).piv(kk) then
+                    report "           pivote " & integer'image(kk) & "  display='" & txt & "'  OK";
+                else
+                    report "           pivote " & integer'image(kk) & "  display='" & txt &
+                           "' esperado='" & CASOS(m).piv(kk) & "'  ERROR" severity error;
+                    errores := errores + 1;
+                end if;
+            end loop;
+            sw_piv <= "000";
+            wait for 8 * T;
+            espera_final(2000, ciclos);
+        end loop;
 
         if errores = 0 then
             report "TODAS LAS PRUEBAS PASARON";
