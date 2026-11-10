@@ -11,10 +11,13 @@ TIMESPEC "TS_sys_clk" = PERIOD "sys_clk" 10 ns HIGH 50 %;
 NET "rst"    LOC = "M18" | IOSTANDARD = "LVCMOS33";   # BTNU
 NET "inicio" LOC = "N17" | IOSTANDARD = "LVCMOS33";   # BTNC
 
-## Switches: direccion del banco de pivotes (0 = determinante)
-NET "sw_piv<0>" LOC = "J15" | IOSTANDARD = "LVCMOS33";   # SW0
-NET "sw_piv<1>" LOC = "L16" | IOSTANDARD = "LVCMOS33";   # SW1
-NET "sw_piv<2>" LOC = "M13" | IOSTANDARD = "LVCMOS33";   # SW2
+## Switches: direccion del banco de pivotes (dir_p = 1..4)
+NET "dir_p<0>" LOC = "J15" | IOSTANDARD = "LVCMOS33";    # SW0
+NET "dir_p<1>" LOC = "L16" | IOSTANDARD = "LVCMOS33";    # SW1
+NET "dir_p<2>" LOC = "M13" | IOSTANDARD = "LVCMOS33";    # SW2
+
+## Switch: que se muestra (0 = determinante, 1 = pivote)
+NET "ver" LOC = "R15" | IOSTANDARD = "LVCMOS33";         # SW3
 
 ## Switches: matriz de prueba (pagina de la ROM)
 NET "sw_mat<0>" LOC = "U12" | IOSTANDARD = "LVCMOS33";   # SW13

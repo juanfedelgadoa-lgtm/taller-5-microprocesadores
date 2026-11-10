@@ -107,15 +107,23 @@ def texto_display(valor):
     return signo + str(mag).zfill(7), abs(valor) > 9_999_999
 
 
+def bin6(x):
+    """Entero en complemento a 2 de 6 bits."""
+    return format(x & 0x3F, "06b")
+
+
 def lineas_rom(pagina, a):
-    """Lineas VHDL de la ROM (orden por columnas, como la Figura 1)."""
+    """Lineas de la ROM en VHDL (sentencia 'with dir select').
+
+    La direccion es pag(3 bits) & dira(5 bits).  Orden por columnas, como la
+    Figura 1 del taller: 00h = n, luego a11, a21, ..., an1, a12, ..."""
     n = len(a)
-    base = 32 * pagina
-    out = [f"      {base:3d} => conv_std_logic_vector({n:3d},6),  -- pagina {pagina}: n = {n}"]
+    out = [f'         "{bin6(n)}" when "{pagina:03b}{0:05b}",   -- pag {pagina}, 00h: n = {n}']
     dir_ = 1
     for j in range(n):
         for i in range(n):
-            out.append(f"      {base + dir_:3d} => conv_std_logic_vector({a[i][j]:3d},6),  -- a{i+1}{j+1}")
+            out.append(f'         "{bin6(a[i][j])}" when "{pagina:03b}{dir_:05b}",   '
+                       f'-- pag {pagina}, {dir_:02X}h: a{i+1}{j+1} = {a[i][j]}')
             dir_ += 1
     return out
 
