@@ -1,41 +1,124 @@
 Simulacion con GHDL 4.1.0 (ghdl -fsynopsys -fexplicit)
 Fecha: 2026-11-09
 
-== sim/tb_asm_bareiss.vhd con MAX_MATRIZ = 7 (ASM + ROM externa)
-Matriz 0 (2x2): det=' 0000026' desborde='0'  ciclos=792  OK
-           dir_p=1  pivote=' 0000007'  (listo con final)  OK
-Matriz 1 (3x3): det=' 0000003' desborde='0'  ciclos=819  OK
-           dir_p=1  pivote=' 0000002'  (listo con final)  OK
-           dir_p=2  pivote=' 0000007'  ciclos XS3=374  OK
-Matriz 2 (4x4): det='-0000022' desborde='0'  ciclos=1004  OK
-           dir_p=1  pivote=' 0000002'  (listo con final)  OK
-           dir_p=2  pivote=' 0000004'  ciclos XS3=374  OK
-           dir_p=3  pivote=' 0000013'  ciclos XS3=374  OK
-Matriz 3 (5x5): det=' 0000362' desborde='0'  ciclos=4580  OK
-           dir_p=1  pivote=' 0000004'  (listo con final)  OK
-           dir_p=2  pivote=' 0000020'  ciclos XS3=374  OK
-           dir_p=3  pivote='-0000170'  ciclos XS3=374  OK
-           dir_p=4  pivote='-0000639'  ciclos XS3=374  OK
-Matriz 4 (3x3): det=' 0000050' desborde='0'  ciclos=897  OK
-           dir_p=1  pivote='-0000002'  (listo con final)  OK
-           dir_p=2  pivote='-0000010'  ciclos XS3=374  OK
-Matriz 5 (4x4): det=' 0000150' desborde='0'  ciclos=1184  OK
-           dir_p=1  pivote=' 0000001'  (listo con final)  OK
-           dir_p=2  pivote='-0000005'  ciclos XS3=374  OK
-           dir_p=3  pivote=' 0000025'  ciclos XS3=374  OK
-Matriz 6 (5x5): det=' 0000000' desborde='0'  ciclos=780  OK
-           dir_p=1  pivote=' 0000000'  (listo con final)  OK
-           dir_p=2  pivote=' 0000000'  ciclos XS3=374  OK
-           dir_p=3  pivote=' 0000000'  ciclos XS3=374  OK
-           dir_p=4  pivote=' 0000000'  ciclos XS3=374  OK
-Matriz 7 (5x5): det='-7121828' desborde='1'  ciclos=19013802  OK
-           dir_p=1  pivote=' 0000030'  (listo con final)  OK
-           dir_p=2  pivote='-0001359'  ciclos XS3=374  OK
-           dir_p=3  pivote=' 0022146'  ciclos XS3=374  OK
-           dir_p=4  pivote=' 0277564'  ciclos XS3=374  OK
-TODAS LAS PRUEBAS PASARON
+== sim/probar_matrices.py --todas : sim/tb_procesador.vhd con cada matriz de prueba en la ROM
 
-== sim/tb_det_bareiss.vhd (tope con sincronizador, ROM y display; lectura de an/seg)
-ver=0          display=' 0000362'  OK
-ver=1, dir_p=3 display='-0000170'  OK
+== Matriz 0
+   Matriz de la ROM: 2x2   det esperado = 26   intercambios de filas = 0
+   Corrida 1: final = 1 en 795 ciclos
+      det           = ' 0000000026'  OK
+      pivote dir_p=1 = ' 0000000007'  OK
+      pivote dir_p=2 = ' 0000000026'  OK
+   Corrida 2: final = 1 en 795 ciclos
+      det           = ' 0000000026'  OK
+      pivote dir_p=1 = ' 0000000007'  OK
+      pivote dir_p=2 = ' 0000000026'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 1
+   Matriz de la ROM: 3x3   det esperado = 3   intercambios de filas = 0
+   Corrida 1: final = 1 en 822 ciclos
+      det           = ' 0000000003'  OK
+      pivote dir_p=1 = ' 0000000002'  OK
+      pivote dir_p=2 = ' 0000000007'  OK
+      pivote dir_p=3 = ' 0000000003'  OK
+   Corrida 2: final = 1 en 822 ciclos
+      det           = ' 0000000003'  OK
+      pivote dir_p=1 = ' 0000000002'  OK
+      pivote dir_p=2 = ' 0000000007'  OK
+      pivote dir_p=3 = ' 0000000003'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 2
+   Matriz de la ROM: 4x4   det esperado = -22   intercambios de filas = 1
+   Corrida 1: final = 1 en 1003 ciclos
+      det           = '-0000000022'  OK
+      pivote dir_p=1 = ' 0000000002'  OK
+      pivote dir_p=2 = ' 0000000004'  OK
+      pivote dir_p=3 = ' 0000000013'  OK
+      pivote dir_p=4 = '-0000000022'  OK
+   Corrida 2: final = 1 en 1003 ciclos
+      det           = '-0000000022'  OK
+      pivote dir_p=1 = ' 0000000002'  OK
+      pivote dir_p=2 = ' 0000000004'  OK
+      pivote dir_p=3 = ' 0000000013'  OK
+      pivote dir_p=4 = '-0000000022'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 3
+   Matriz de la ROM: 5x5   det esperado = 362   intercambios de filas = 0
+   Corrida 1: final = 1 en 4583 ciclos
+      det           = ' 0000000362'  OK
+      pivote dir_p=1 = ' 0000000004'  OK
+      pivote dir_p=2 = ' 0000000020'  OK
+      pivote dir_p=3 = '-0000000170'  OK
+      pivote dir_p=4 = '-0000000639'  OK
+      pivote dir_p=5 = ' 0000000362'  OK
+   Corrida 2: final = 1 en 4583 ciclos
+      det           = ' 0000000362'  OK
+      pivote dir_p=1 = ' 0000000004'  OK
+      pivote dir_p=2 = ' 0000000020'  OK
+      pivote dir_p=3 = '-0000000170'  OK
+      pivote dir_p=4 = '-0000000639'  OK
+      pivote dir_p=5 = ' 0000000362'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 4
+   Matriz de la ROM: 3x3   det esperado = 50   intercambios de filas = 1
+   Corrida 1: final = 1 en 898 ciclos
+      det           = ' 0000000050'  OK
+      pivote dir_p=1 = '-0000000002'  OK
+      pivote dir_p=2 = '-0000000010'  OK
+      pivote dir_p=3 = ' 0000000050'  OK
+   Corrida 2: final = 1 en 898 ciclos
+      det           = ' 0000000050'  OK
+      pivote dir_p=1 = '-0000000002'  OK
+      pivote dir_p=2 = '-0000000010'  OK
+      pivote dir_p=3 = ' 0000000050'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 5
+   Matriz de la ROM: 4x4   det esperado = 150   intercambios de filas = 1
+   Corrida 1: final = 1 en 1184 ciclos
+      det           = ' 0000000150'  OK
+      pivote dir_p=1 = ' 0000000001'  OK
+      pivote dir_p=2 = '-0000000005'  OK
+      pivote dir_p=3 = ' 0000000025'  OK
+      pivote dir_p=4 = ' 0000000150'  OK
+   Corrida 2: final = 1 en 1184 ciclos
+      det           = ' 0000000150'  OK
+      pivote dir_p=1 = ' 0000000001'  OK
+      pivote dir_p=2 = '-0000000005'  OK
+      pivote dir_p=3 = ' 0000000025'  OK
+      pivote dir_p=4 = ' 0000000150'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 6
+   Matriz de la ROM: 5x5   det esperado = 0   intercambios de filas = 0
+   Corrida 1: final = 1 en 783 ciclos
+      det           = ' 0000000000'  OK
+      pivote dir_p=1 = ' 0000000000'  OK
+      pivote dir_p=2 = ' 0000000000'  OK
+      pivote dir_p=3 = ' 0000000000'  OK
+      pivote dir_p=4 = ' 0000000000'  OK
+      pivote dir_p=5 = ' 0000000000'  OK
+   Corrida 2: final = 1 en 783 ciclos
+      det           = ' 0000000000'  OK
+      pivote dir_p=1 = ' 0000000000'  OK
+      pivote dir_p=2 = ' 0000000000'  OK
+      pivote dir_p=3 = ' 0000000000'  OK
+      pivote dir_p=4 = ' 0000000000'  OK
+      pivote dir_p=5 = ' 0000000000'  OK
+   TODAS LAS PRUEBAS PASARON
+== Matriz 7
+   Matriz de la ROM: 5x5   det esperado = -17121828   intercambios de filas = 0
+   Corrida 1: final = 1 en 19013805 ciclos
+      det           = '-0017121828'  OK
+      pivote dir_p=1 = ' 0000000030'  OK
+      pivote dir_p=2 = '-0000001359'  OK
+      pivote dir_p=3 = ' 0000022146'  OK
+      pivote dir_p=4 = ' 0000277564'  OK
+      pivote dir_p=5 = '-0017121828'  OK
+   TODAS LAS PRUEBAS PASARON
+
+== sim/tb_det_bareiss.vhd : tope de la tarjeta con la ROM de src/rom_matriz.vhd (antirrebote, display)
+Matriz 5x5: det esperado = 362
+Pulsacion con rebotes: un solo calculo, final = 1  OK
+dir_p=0 (det)      display=' 0000362'  OK
+dir_p=2 (pivote 2) display=' 0000020'  OK
+dir_p=n (pivote n) display=' 0000362'  OK
 TODAS LAS PRUEBAS PASARON

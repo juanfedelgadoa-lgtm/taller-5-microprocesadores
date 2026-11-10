@@ -11,22 +11,15 @@ TIMESPEC "TS_sys_clk" = PERIOD "sys_clk" 10 ns HIGH 50 %;
 NET "rst"    LOC = "M18" | IOSTANDARD = "LVCMOS33";   # BTNU
 NET "inicio" LOC = "N17" | IOSTANDARD = "LVCMOS33";   # BTNC
 
-## Switches: direccion del banco de pivotes (dir_p = 1..4)
+## Switches: dir_p (0 = muestra det, 1..5 = muestra el pivote k)
 NET "dir_p<0>" LOC = "J15" | IOSTANDARD = "LVCMOS33";    # SW0
 NET "dir_p<1>" LOC = "L16" | IOSTANDARD = "LVCMOS33";    # SW1
 NET "dir_p<2>" LOC = "M13" | IOSTANDARD = "LVCMOS33";    # SW2
 
-## Switch: que se muestra (0 = determinante, 1 = pivote)
-NET "ver" LOC = "R15" | IOSTANDARD = "LVCMOS33";         # SW3
-
-## Switches: matriz de prueba (pagina de la ROM)
-NET "sw_mat<0>" LOC = "U12" | IOSTANDARD = "LVCMOS33";   # SW13
-NET "sw_mat<1>" LOC = "U11" | IOSTANDARD = "LVCMOS33";   # SW14
-NET "sw_mat<2>" LOC = "V10" | IOSTANDARD = "LVCMOS33";   # SW15
-
 ## LEDs
 NET "final"    LOC = "H17" | IOSTANDARD = "LVCMOS33";    # LD0
 NET "desborde" LOC = "K15" | IOSTANDARD = "LVCMOS33";    # LD1
+NET "latido"   LOC = "V11" | IOSTANDARD = "LVCMOS33";    # LD15
 
 ## Display de 7 segmentos (catodos y anodos activos en bajo)
 NET "seg<0>" LOC = "T10" | IOSTANDARD = "LVCMOS33";      # CA
