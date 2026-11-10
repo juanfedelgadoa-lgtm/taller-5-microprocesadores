@@ -22,8 +22,8 @@ from modelo_referencia import MATRICES, escribir_rom  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[1]
 GHDL = os.environ.get("GHDL", "ghdl")
-FUENTES = ["ram.vhd", "multiplicador.vhd", "sumador_restador.vhd", "bloque_division.vhd",
-           "xs3.vhd", "banco_pivotes.vhd", "asm_bareiss.vhd", "procesador.vhd"]
+FUENTES = ["ram.vhd", "multiplicador.vhd", "alu.vhd", "banco_pivotes.vhd",
+           "asm_bareiss.vhd", "procesador.vhd"]
 
 
 def probar(num, matriz, carpeta, corridas):

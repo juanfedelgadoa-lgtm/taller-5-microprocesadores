@@ -1,5 +1,16 @@
 Simulacion con GHDL 4.1.0 (ghdl -fsynopsys -fexplicit)
-Fecha: 2026-11-09
+Fecha: 2026-11-10
+
+== sim/tb_alu.vhd : las 8 operaciones de la ALU
+M s1 s0 = '0''0''0'  not B      probada
+M s1 s0 = '0''0''1'  A and B    probada
+M s1 s0 = '0''1''0'  A or B     probada
+M s1 s0 = '0''1''1'  A xnor B   probada
+M s1 s0 = '1''0''0'  A + 1      probada
+M s1 s0 = '1''0''1'  A + B      probada
+M s1 s0 = '1''1''0'  A - B      probada
+M s1 s0 = '1''1''1'  A - 1      probada
+TODAS LAS PRUEBAS PASARON
 
 == sim/probar_matrices.py --todas : sim/tb_procesador.vhd con cada matriz de prueba en la ROM
 

@@ -196,9 +196,12 @@ def asm_hoja3():
     g.bloque("s13")
     g.estado("S13", "t2 ← producto")
     g.bloque("s14")
-    g.estado("S14", "t3 ← t1 − t2\n(sumador/restador)")
+    g.estado("S14", "t3 ← t1 − t2\n(ALU: A − B)")
     g.bloque("s15")
-    g.estado("S15", "ini_div = 1\ndividendo = |t3| ;  divisor = |p|\nsq ← signo(t3) ⊕ signo(p)")
+    g.estado("S15", "DIVISIÓN: inicio\ncociente ← 0\nsq ← signo(t3) ⊕ signo(p)")
+    g.decision("D15", "t3 < 0")
+    g.cond("C15a", "residuo ← 0 − t3\n(ALU: A − B)")
+    g.cond("C15b", "residuo ← t3")
     g.conector("cE", "E")
     g.flecha("cC", "S10")
     g.flecha("S10", "S11")
@@ -206,203 +209,175 @@ def asm_hoja3():
     g.flecha("S12", "S13")
     g.flecha("S13", "S14")
     g.flecha("S14", "S15")
-    g.flecha("S15", "cE")
+    g.flecha("S15", "D15")
+    g.flecha("D15", "C15a", "1")
+    g.flecha("D15", "C15b", "0")
+    g.flecha("C15a", "cE")
+    g.flecha("C15b", "cE")
     return g.dot()
 
 
 # ---------------------------------------------------------------------------
-# Hoja 4: espera de la division, escritura de a(i,j), avance, ultimo pivote
+# Hoja 4: division por restas sucesivas, escritura de a(i,j), avance, det
 # ---------------------------------------------------------------------------
 def asm_hoja4():
     g = ASM()
     g.conector("cE", "E")
     g.bloque("s16")
-    g.estado("S16", "espera el bloque\nde división")
-    g.decision("D16a", "fin_div")
-    g.decision("D16b", "sq")
-    g.cond("C16a", "RAM(i,j) ← 0 − cociente")
-    g.cond("C16b", "RAM(i,j) ← cociente")
-    g.decision("D16c", "j = n")
-    g.cond("C16c", "j ← j + 1")
-    g.decision("D16d", "i = n")
-    g.cond("C16d", "i ← i + 1\nj ← k + 1")
+    g.estado("S16", "DIVISIÓN: resta sucesiva\nALU: residuo − |p|")
+    g.decision("D16", "residuo − |p| ≥ 0")
+    g.cond("C16", "residuo ← residuo − |p|\ncociente ← cociente + 1")
     g.bloque("s17")
-    g.estado("S17", "p ← piv\nk ← k + 1")
-    g.decision("D17a", "piv < 0")
-    g.cond("C17a", "|p| ← 0 − piv")
-    g.cond("C17b", "|p| ← piv")
-    g.decision("D17b", "k + 1 = n")
+    g.estado("S17", "escribe a(i,j) en la RAM")
+    g.decision("D17a", "sq")
+    g.cond("C17a", "RAM(i,j) ← 0 − cociente\n(ALU: A − B)")
+    g.cond("C17b", "RAM(i,j) ← cociente")
+    g.decision("D17b", "j = n")
+    g.cond("C17c", "j ← j + 1")
+    g.decision("D17c", "i = n")
+    g.cond("C17d", "i ← i + 1\nj ← k + 1")
     g.bloque("s18")
-    g.estado("S18", "lee RAM(n,n)")
-    g.decision("D18", "signo")
-    g.cond("C18a", "det_bin ← 0 − RAM(n,n)\nbanco(n) ← 0 − RAM(n,n)")
-    g.cond("C18b", "det_bin ← RAM(n,n)\nbanco(n) ← RAM(n,n)")
+    g.estado("S18", "p ← piv\nk ← k + 1")
+    g.decision("D18a", "piv < 0")
+    g.cond("C18a", "|p| ← 0 − piv\n(ALU: A − B)")
+    g.cond("C18b", "|p| ← piv")
+    g.decision("D18b", "k + 1 = n")
+    g.bloque("s19")
+    g.estado("S19", "lee RAM(n,n)")
+    g.decision("D19", "signo")
+    g.cond("C19a", "det_bin ← 0 − RAM(n,n)\nbanco(n) ← 0 − RAM(n,n)")
+    g.cond("C19b", "det_bin ← RAM(n,n)\nbanco(n) ← RAM(n,n)")
     g.conector("cC1", "C")
     g.conector("cC2", "C")
     g.conector("cB", "B")
     g.conector("cD", "D")
     g.flecha("cE", "S16")
-    g.flecha("S16", "D16a")
-    g.flecha("D16a", "S16", "0")
-    g.flecha("D16a", "D16b", "1")
-    g.flecha("D16b", "C16a", "1")
-    g.flecha("D16b", "C16b", "0")
-    g.flecha("C16a", "D16c")
-    g.flecha("C16b", "D16c")
-    g.flecha("D16c", "C16c", "0")
-    g.flecha("C16c", "cC1")
-    g.flecha("D16c", "D16d", "1")
-    g.flecha("D16d", "C16d", "0")
-    g.flecha("C16d", "cC2")
-    g.flecha("D16d", "S17", "1")
+    g.flecha("S16", "D16")
+    g.flecha("D16", "C16", "1")
+    g.flecha("C16", "S16")
+    g.flecha("D16", "S17", "0")
     g.flecha("S17", "D17a")
     g.flecha("D17a", "C17a", "1")
     g.flecha("D17a", "C17b", "0")
     g.flecha("C17a", "D17b")
     g.flecha("C17b", "D17b")
-    g.flecha("D17b", "cB", "0")
-    g.flecha("D17b", "S18", "1")
-    g.flecha("S18", "D18")
-    g.flecha("D18", "C18a", "1")
-    g.flecha("D18", "C18b", "0")
-    g.flecha("C18a", "cD")
-    g.flecha("C18b", "cD")
+    g.flecha("D17b", "C17c", "0")
+    g.flecha("C17c", "cC1")
+    g.flecha("D17b", "D17c", "1")
+    g.flecha("D17c", "C17d", "0")
+    g.flecha("C17d", "cC2")
+    g.flecha("D17c", "S18", "1")
+    g.flecha("S18", "D18a")
+    g.flecha("D18a", "C18a", "1")
+    g.flecha("D18a", "C18b", "0")
+    g.flecha("C18a", "D18b")
+    g.flecha("C18b", "D18b")
+    g.flecha("D18b", "cB", "0")
+    g.flecha("D18b", "S19", "1")
+    g.flecha("S19", "D19")
+    g.flecha("D19", "C19a", "1")
+    g.flecha("D19", "C19b", "0")
+    g.flecha("C19a", "cD")
+    g.flecha("C19b", "cD")
     return g.dot()
 
 
 # ---------------------------------------------------------------------------
-# Hoja 5: conversion XS3 de det y del pivote, final
+# Hoja 5: algoritmo XS3 integrado (det y pivote) y final
 # ---------------------------------------------------------------------------
 def asm_hoja5():
     g = ASM()
     g.conector("cD", "D")
-    g.bloque("s19")
-    g.estado("S19", "val = det_bin si conv_piv = 0\nval = banco(dir_p) si conv_piv = 1\n"
-                    "ini_xs3 = 1 ;  bin_xs3 = |val|\nneg ← signo(val) ;  dir_ant ← dir_p")
     g.bloque("s20")
-    g.estado("S20", "espera el bloque XS3")
-    g.decision("D20a", "fin_xs3")
-    g.decision("D20b", "conv_piv")
-    g.cond("C20a", "det ← bcd_xs3\ndet_neg ← neg\nconv_piv ← 1")
-    g.cond("C20b", "pivote ← bcd_xs3\npiv_neg ← neg")
+    g.estado("S20", "val = det_bin si conv_piv = 0\nval = banco(dir_p) si conv_piv = 1\n"
+                    "neg ← signo(val) ;  dir_ant ← dir_p")
+    g.decision("D20", "val < 0")
+    g.cond("C20a", "bin ← 0 − val\n(ALU: A − B)")
+    g.cond("C20b", "bin ← val")
     g.bloque("s21")
-    g.estado("S21", "final = 1\ndira ← 0")
-    g.decision("D21a", "inicio")
-    g.decision("D21b", "dir_p ≠ dir_ant")
+    g.estado("S21", "XS3 PASO 1\nBCD ← 0  (10 dígitos)\ncont ← 0")
+    g.bloque("s22")
+    g.estado("S22", "XS3 PASO 2\nBCD(0) ← bin(31)\n(MSB binario → LSB decimal)")
+    g.decision("D22", "cont = 31\n(¿último bit?)")
+    g.cond("C22", "d ← 0")
+    g.bloque("s23")
+    g.estado("S23", "XS3 PASO 3\nALU: dígito(d) + 3  (A + B)")
+    g.decision("D23a", "dígito(d) > 4")
+    g.cond("C23a", "dígito(d) ← dígito(d) + 3")
+    g.decision("D23b", "d = 9")
+    g.cond("C23b", "d ← d + 1")
+    g.bloque("s24")
+    g.estado("S24", "XS3 PASO 4\nBCD ← BCD << 1\nbin ← bin << 1\ncont ← cont + 1")
+    g.bloque("s25")
+    g.estado("S25", "guarda el resultado del XS3")
+    g.decision("D25", "conv_piv")
+    g.cond("C25a", "det ← BCD ;  det_neg ← neg\nconv_piv ← 1")
+    g.cond("C25b", "pivote ← BCD\npiv_neg ← neg")
+    g.bloque("s26")
+    g.estado("S26", "final = 1\ndira ← 0")
+    g.decision("D26a", "inicio")
+    g.decision("D26b", "dir_p ≠ dir_ant")
+    g.conector("cD1", "D")
     g.conector("cA", "A")
-    g.flecha("cD", "S19")
-    g.flecha("S19", "S20")
-    g.flecha("S20", "D20a")
-    g.flecha("D20a", "S20", "0")
-    g.flecha("D20a", "D20b", "1")
-    g.flecha("D20b", "C20a", "0")
-    g.flecha("D20b", "C20b", "1")
-    g.flecha("C20a", "S19")
+    g.conector("cD2", "D")
+    g.flecha("cD", "S20")
+    g.flecha("S20", "D20")
+    g.flecha("D20", "C20a", "1")
+    g.flecha("D20", "C20b", "0")
+    g.flecha("C20a", "S21")
     g.flecha("C20b", "S21")
-    g.flecha("S21", "D21a")
-    g.flecha("D21a", "cA", "1")
-    g.flecha("D21a", "D21b", "0")
-    g.flecha("D21b", "S19", "1")
-    g.flecha("D21b", "S21", "0")
+    g.flecha("S21", "S22")
+    g.flecha("S22", "D22")
+    g.flecha("D22", "C22", "0")
+    g.flecha("D22", "S25", "1")
+    g.flecha("C22", "S23")
+    g.flecha("S23", "D23a")
+    g.flecha("D23a", "C23a", "1")
+    g.flecha("D23a", "D23b", "0")
+    g.flecha("C23a", "D23b")
+    g.flecha("D23b", "C23b", "0")
+    g.flecha("C23b", "S23")
+    g.flecha("D23b", "S24", "1")
+    g.flecha("S24", "S22")
+    g.flecha("S25", "D25")
+    g.flecha("D25", "C25a", "0")
+    g.flecha("D25", "C25b", "1")
+    g.flecha("C25a", "cD1")
+    g.flecha("C25b", "S26")
+    g.flecha("S26", "D26a")
+    g.flecha("D26a", "cA", "1")
+    g.flecha("D26a", "D26b", "0")
+    g.flecha("D26b", "cD2", "1")
+    g.flecha("D26b", "S26", "0")
     return g.dot()
 
 
 # ---------------------------------------------------------------------------
-# ASM del bloque XS3 (un estado por paso del documento XS3)
-# ---------------------------------------------------------------------------
-def asm_xs3():
-    g = ASM()
-    g.bloque("x0")
-    g.estado("X0", "final = 0\n(espera)")
-    g.decision("DX0", "inicio")
-    g.cond("CX0", "bin ← bin_in")
-    g.bloque("x1")
-    g.estado("X1", "PASO 1\ndec ← 0  (10 dígitos)\ncont ← 0")
-    g.bloque("x2")
-    g.estado("X2", "PASO 2\ndec(0) ← bin(31)\n(MSB binario → LSB decimal)")
-    g.decision("DX2", "cont = 31")
-    g.cond("CX2", "d ← 0")
-    g.bloque("x3")
-    g.estado("X3", "PASO 3\nrevisa el dígito d")
-    g.decision("DX3a", "dígito(d) > 4")
-    g.cond("CX3a", "dígito(d) ← dígito(d) + 3")
-    g.decision("DX3b", "d = 9")
-    g.cond("CX3b", "d ← d + 1")
-    g.bloque("x4")
-    g.estado("X4", "PASO 4\ndec ← dec << 1\nbin ← bin << 1\ncont ← cont + 1")
-    g.bloque("x5")
-    g.estado("X5", "PASO 5 cumplido\nfinal = 1")
-    g.flecha("X0", "DX0")
-    g.flecha("DX0", "X0", "0")
-    g.flecha("DX0", "CX0", "1")
-    g.flecha("CX0", "X1")
-    g.flecha("X1", "X2")
-    g.flecha("X2", "DX2")
-    g.flecha("DX2", "CX2", "0")
-    g.flecha("DX2", "X5", "1")
-    g.flecha("CX2", "X3")
-    g.flecha("X3", "DX3a")
-    g.flecha("DX3a", "CX3a", "1")
-    g.flecha("DX3a", "DX3b", "0")
-    g.flecha("CX3a", "DX3b")
-    g.flecha("DX3b", "CX3b", "0")
-    g.flecha("CX3b", "X3")
-    g.flecha("DX3b", "X4", "1")
-    g.flecha("X4", "X2")
-    g.flecha("X5", "X0")
-    return g.dot()
-
-
-# ---------------------------------------------------------------------------
-# ASM del bloque de division por restas sucesivas
-# ---------------------------------------------------------------------------
-def asm_division():
-    g = ASM()
-    g.bloque("d0")
-    g.estado("D0", "final = 0\n(espera)")
-    g.decision("DD0", "inicio")
-    g.cond("CD0", "R ← dividendo\nD ← divisor\nQ ← 0")
-    g.bloque("d1")
-    g.estado("D1", "restador: R − D")
-    g.decision("DD1", "R − D ≥ 0")
-    g.cond("CD1", "R ← R − D\nQ ← Q + 1")
-    g.bloque("d2")
-    g.estado("D2", "final = 1\ncociente = Q")
-    g.flecha("D0", "DD0")
-    g.flecha("DD0", "D0", "0")
-    g.flecha("DD0", "CD0", "1")
-    g.flecha("CD0", "D1")
-    g.flecha("D1", "DD1")
-    g.flecha("DD1", "CD1", "1")
-    g.flecha("CD1", "D1")
-    g.flecha("DD1", "D2", "0")
-    g.flecha("D2", "D0")
-    return g.dot()
-
-
-# ---------------------------------------------------------------------------
-# Vista general del ASM principal
+# Vista general del ASM
 # ---------------------------------------------------------------------------
 def vista_general():
     grupos = [
         ("Carga de la matriz", "#eef4ff", ["s0", "s1", "s2", "s3"]),
         ("Pivote e intercambio", "#fff3e6", ["s4", "s5", "s6", "s7", "s8", "s9"]),
-        ("Actualización de a(i,j)", "#eefaf0", ["s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18"]),
-        ("Conversión XS3 y final", "#f6eefc", ["s19", "s20", "s21"]),
+        ("Actualización de a(i,j) y división", "#eefaf0",
+         ["s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19"]),
+        ("XS3 y final", "#f6eefc", ["s20", "s21", "s22", "s23", "s24", "s25", "s26"]),
     ]
     trans = [
         ("s0", "s0", "inicio=0"), ("s0", "s1", "inicio=1"), ("s1", "s2", ""),
         ("s2", "s2", "copia"), ("s2", "s3", "i=n, j=n"), ("s3", "s4", ""),
         ("s4", "s9", "piv≠0"), ("s4", "s5", "piv=0"),
-        ("s5", "s5", "RAM(i,k)=0, i≠n"), ("s5", "s6", "RAM(i,k)≠0"), ("s5", "s19", "i=n (det=0)"),
+        ("s5", "s5", "RAM(i,k)=0, i≠n"), ("s5", "s6", "RAM(i,k)≠0"), ("s5", "s20", "i=n (det=0)"),
         ("s6", "s7", ""), ("s7", "s8", ""), ("s8", "s6", "j≠n"), ("s8", "s4", "j=n"),
         ("s9", "s10", ""), ("s10", "s11", ""), ("s11", "s12", ""), ("s12", "s13", ""),
         ("s13", "s14", ""), ("s14", "s15", ""), ("s15", "s16", ""),
-        ("s16", "s16", "fin_div=0"), ("s16", "s10", "falta (i,j)"), ("s16", "s17", "i=n, j=n"),
-        ("s17", "s4", "k+1≠n"), ("s17", "s18", "k+1=n"), ("s18", "s19", ""),
-        ("s19", "s20", ""), ("s20", "s20", "fin_xs3=0"),
-        ("s20", "s19", "conv_piv=0"), ("s20", "s21", "conv_piv=1"),
-        ("s21", "s1", "inicio=1"), ("s21", "s19", "cambio dir_p"), ("s21", "s21", "espera"),
+        ("s16", "s16", "residuo≥|p|"), ("s16", "s17", "residuo<|p|"),
+        ("s17", "s10", "falta (i,j)"), ("s17", "s18", "i=n, j=n"),
+        ("s18", "s4", "k+1≠n"), ("s18", "s19", "k+1=n"), ("s19", "s20", ""),
+        ("s20", "s21", ""), ("s21", "s22", ""), ("s22", "s23", "cont≠31"), ("s22", "s25", "cont=31"),
+        ("s23", "s23", "d≠9"), ("s23", "s24", "d=9"), ("s24", "s22", ""),
+        ("s25", "s20", "conv_piv=0"), ("s25", "s26", "conv_piv=1"),
+        ("s26", "s1", "inicio=1"), ("s26", "s20", "cambio dir_p"), ("s26", "s26", "espera"),
     ]
     out = [f"""digraph G {{
   graph [rankdir=LR, fontname="{FUENTE}", nodesep=0.25, ranksep=0.35, pad=0.2];
@@ -430,7 +405,7 @@ def caja_negra():
   edge [fontname="{FUENTE}", fontsize=10, arrowsize=0.7];
   subgraph entradas {{ rank=same; node [shape=plaintext]; clk; rst; inicio; dir_p; }}
   P [shape=box, style=filled, fillcolor="#333333", fontcolor=white, fontsize=14,
-     label="PROCESADOR\\n(algoritmo de Bareiss)\\n\\nROM, RAM, división\\ny XS3 internos", width=2.6, height=2.4];
+     label="PROCESADOR\\n(algoritmo de Bareiss\\n+ XS3)\\n\\nROM, RAM, multiplicador\\ny ALU internos", width=2.6, height=2.4];
   subgraph salidas {{ rank=same; node [shape=plaintext];
     det [label="det  (BCD) + det_neg"]; pivote [label="pivote  (BCD) + piv_neg"]; final; }}
   clk -> P; rst -> P; inicio -> P; dir_p -> P [label="3"];
@@ -443,20 +418,18 @@ def caja_negra():
 # Caja gris del procesador: ASM + bloques del camino de datos
 # ---------------------------------------------------------------------------
 def cajas_grises():
-    bloque = 'shape=box, style="filled", fillcolor="#fde3c4", width=2.0'
+    bloque = 'shape=box, style="filled", fillcolor="#fde3c4", width=2.1'
     return f"""digraph G {{
-  graph [rankdir=LR, fontname="{FUENTE}", nodesep=0.28, ranksep=1.5, pad=0.2];
+  graph [rankdir=LR, fontname="{FUENTE}", nodesep=0.35, ranksep=1.6, pad=0.2];
   node [fontname="{FUENTE}", fontsize=10];
   edge [fontname="{FUENTE}", fontsize=8, arrowsize=0.6];
   subgraph cluster_proc {{ label="procesador"; style="rounded"; color="#555555"; fontsize=12;
     UC [shape=box, style=filled, fillcolor="#dbe8fb", fontsize=12,
-        label="UNIDAD DE CONTROL\\nasm_bareiss\\n(ASM s0 a s21)\\n\\nregistros: n, i, j, k,\\npiv, p, |p|, signo,\\ntmp1, tmp2, mul_a, mul_b,\\nt1, t2, t3, sq, det_bin,\\nconv_piv, dir_ant, neg,\\ndet, pivote", width=2.4, height=6.2];
+        label="UNIDAD DE CONTROL\\nasm_bareiss\\n(ASM s0 a s26:\\nBareiss + división + XS3)\\n\\nregistros: n, i, j, k,\\npiv, p, |p|, signo,\\ntmp1, tmp2, mul_a, mul_b,\\nt1, t2, t3,\\nresiduo, cociente, sq,\\ndet_bin, conv_piv, dir_ant,\\nbin, BCD, cont, d, neg,\\ndet, pivote", width=2.5, height=5.6];
     ROM [{bloque}, label="ROM\\nrom_matriz\\n32 × 6"];
     RAM [{bloque}, label="RAM\\nRAM_memory\\n64 × 32"];
     MUL [{bloque}, label="MULTIPLICADOR\\n25 × 25 → 50"];
-    SR  [{bloque}, label="SUMADOR /\\nRESTADOR 50 bits"];
-    DIV [{bloque}, label="BLOQUE DE DIVISIÓN\\nrestas sucesivas\\n(ASM d0 a d2)"];
-    XS3 [{bloque}, label="BLOQUE XS3\\nbinario → BCD\\n(ASM x0 a x5)"];
+    ALU [{bloque}, label="ALU 50 bits\\n(M, s1, s0)\\nnot, and, or, xnor\\nA+1, A+B, A−B, A−1"];
     BAN [{bloque}, label="BANCO DE PIVOTES\\n5 × 32"];
   }}
   ent [shape=plaintext, label="clk, rst\\ninicio\\ndir_p"];
@@ -466,35 +439,28 @@ def cajas_grises():
   UC -> ROM [label="dira"];          ROM -> UC [label="a"];
   UC -> RAM [label="rd_add, wr_add, we, data"]; RAM -> UC [label="q"];
   UC -> MUL [label="mul_a, mul_b"];  MUL -> UC [label="producto"];
-  UC -> SR  [label="sr_a, sr_b, sr_op"]; SR -> UC [label="resultado"];
-  UC -> DIV [label="ini_div, dividendo, divisor"]; DIV -> UC [label="cociente, fin_div"];
-  UC -> XS3 [label="ini_xs3, bin_xs3"]; XS3 -> UC [label="bcd_xs3, fin_xs3"];
+  UC -> ALU [label="alu_a, alu_b,\\nalu_m, alu_s1, alu_s0"]; ALU -> UC [label="resultado"];
   UC -> BAN [label="clr_banco, we_banco,\\ndir_banco, dato_banco"]; BAN -> UC [label="piv_banco"];
 }}
 """
 
 
-def grises_bloques():
+def alu_interna():
     return f"""digraph G {{
-  graph [rankdir=LR, fontname="{FUENTE}", nodesep=0.4, ranksep=1.1, pad=0.2];
-  node [fontname="{FUENTE}", fontsize=10];
+  graph [rankdir=LR, fontname="{FUENTE}", nodesep=0.35, ranksep=0.7, pad=0.2];
+  node [fontname="{FUENTE}", fontsize=10, shape=box, style=filled, fillcolor="#ffffff"];
   edge [fontname="{FUENTE}", fontsize=8, arrowsize=0.6];
-  subgraph cluster_x {{ label="bloque XS3"; style="rounded"; color="#555555";
-    xin [shape=plaintext, label="inicio\\nbin_in (32)"];
-    xuc [shape=box, style=filled, fillcolor="#dbe8fb", label="UC\\n(x0 a x5)"];
-    xcd [shape=box, style=filled, fillcolor="#fde3c4", label="CD\\nregistro binario (32)\\nregistro decimal (40)\\ncontadores cont, d\\nmux de dígitos\\nsumador +3 (4 bits)\\ncomparador > 4\\ndesplazadores"];
-    xout [shape=plaintext, label="bcd (40)\\nfinal"];
-    xin -> xuc; xin -> xcd; xuc -> xcd [label="estado"]; xcd -> xuc [label="cont = 31\\ndígito > 4\\nd = 9"];
-    xcd -> xout; xuc -> xout;
-  }}
-  subgraph cluster_d {{ label="bloque de división"; style="rounded"; color="#555555";
-    din [shape=plaintext, label="inicio\\ndividendo (50)\\ndivisor (32)"];
-    duc [shape=box, style=filled, fillcolor="#dbe8fb", label="UC\\n(d0 a d2)"];
-    dcd [shape=box, style=filled, fillcolor="#fde3c4", label="CD\\nresiduo R (50)\\ndivisor D (32)\\ncociente Q (32)\\nrestador R − D\\ncontador Q + 1"];
-    dout [shape=plaintext, label="cociente (32)\\nfinal"];
-    din -> duc; din -> dcd; duc -> dcd [label="estado"]; dcd -> duc [label="R − D ≥ 0"];
-    dcd -> dout; duc -> dout;
-  }}
+  A [shape=plaintext, label="A (50)"]; B [shape=plaintext, label="B (50)"];
+  SEL [shape=plaintext, label="M, s1, s0"];
+  MUXB [shape=invtrapezium, label="mux Bx\\n100: 0\\n101: B\\n110: not B\\n111: 1…1"];
+  CIN [label="cin = 1 en\\n100 y 110"];
+  SUM [fillcolor="#fde3c4", label="SUMADOR 50 bits\\nA + Bx + cin"];
+  LOG [fillcolor="#fde3c4", label="UNIDAD LÓGICA\\n000: not B\\n001: A and B\\n010: A or B\\n011: A xnor B"];
+  MUXS [shape=invtrapezium, label="mux de salida\\nM = 0: lógica\\nM = 1: suma"];
+  S [shape=plaintext, label="S (50)"];
+  A -> SUM; B -> MUXB; MUXB -> SUM; CIN -> SUM; SEL -> MUXB; SEL -> CIN;
+  A -> LOG; B -> LOG; SEL -> LOG;
+  SUM -> MUXS; LOG -> MUXS; SEL -> MUXS [label="M"]; MUXS -> S;
 }}
 """
 
@@ -542,7 +508,7 @@ def render(nombre, dot_txt, salida, dpi=170):
 DIAGRAMAS = {
     "caja_negra": caja_negra,
     "cajas_grises": cajas_grises,
-    "grises_bloques": grises_bloques,
+    "alu_interna": alu_interna,
     "tope": tope,
     "vista_general": vista_general,
     "asm_hoja1": asm_hoja1,
@@ -550,8 +516,6 @@ DIAGRAMAS = {
     "asm_hoja3": asm_hoja3,
     "asm_hoja4": asm_hoja4,
     "asm_hoja5": asm_hoja5,
-    "asm_xs3": asm_xs3,
-    "asm_division": asm_division,
 }
 
 if __name__ == "__main__":

@@ -6,14 +6,12 @@
 --   salidas  : det (BCD) + det_neg, pivote (BCD) + piv_neg, final
 --
 -- Bloques internos (cada uno en su archivo):
---   asm_bareiss       ASM principal (unidad de control y registros del algoritmo)
---   rom_matriz        ROM con la matriz (direccion dira, dato a)
---   RAM_memory        RAM de trabajo (modelo del curso)
---   multiplicador     unico multiplicador
---   sumador_restador  unico sumador/restador
---   bloque_division   division por restas sucesivas (ASM propio)
---   xs3               conversion binario -> BCD (ASM propio)
---   banco_pivotes     banco de registros de los pivotes
+--   asm_bareiss    ASM de Bareiss con la division y el XS3 integrados
+--   rom_matriz     ROM con la matriz (direccion dira, dato a)
+--   RAM_memory     RAM de trabajo (modelo del curso)
+--   multiplicador  unico multiplicador
+--   alu            unica ALU (sumador/restador y operaciones logicas)
+--   banco_pivotes  banco de registros de los pivotes
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -45,24 +43,17 @@ component asm_bareiss
            mul_a      : out STD_LOGIC_VECTOR (24 downto 0);
            mul_b      : out STD_LOGIC_VECTOR (24 downto 0);
            producto   : in  STD_LOGIC_VECTOR (49 downto 0);
-           sr_a       : out STD_LOGIC_VECTOR (49 downto 0);
-           sr_b       : out STD_LOGIC_VECTOR (49 downto 0);
-           sr_op      : out STD_LOGIC;
+           alu_a      : out STD_LOGIC_VECTOR (49 downto 0);
+           alu_b      : out STD_LOGIC_VECTOR (49 downto 0);
+           alu_m      : out STD_LOGIC;
+           alu_s1     : out STD_LOGIC;
+           alu_s0     : out STD_LOGIC;
            resultado  : in  STD_LOGIC_VECTOR (49 downto 0);
-           ini_div    : out STD_LOGIC;
-           dividendo  : out STD_LOGIC_VECTOR (49 downto 0);
-           divisor    : out STD_LOGIC_VECTOR (31 downto 0);
-           cociente   : in  STD_LOGIC_VECTOR (31 downto 0);
-           fin_div    : in  STD_LOGIC;
            clr_banco  : out STD_LOGIC;
            we_banco   : out STD_LOGIC;
            dir_banco  : out STD_LOGIC_VECTOR (2 downto 0);
            dato_banco : out STD_LOGIC_VECTOR (31 downto 0);
            piv_banco  : in  STD_LOGIC_VECTOR (31 downto 0);
-           ini_xs3    : out STD_LOGIC;
-           bin_xs3    : out STD_LOGIC_VECTOR (31 downto 0);
-           bcd_xs3    : in  STD_LOGIC_VECTOR (39 downto 0);
-           fin_xs3    : in  STD_LOGIC;
            det        : out STD_LOGIC_VECTOR (39 downto 0);
            det_neg    : out STD_LOGIC;
            pivote     : out STD_LOGIC_VECTOR (39 downto 0);
@@ -90,28 +81,13 @@ component multiplicador
            p : out STD_LOGIC_VECTOR (49 downto 0));
 end component;
 
-component sumador_restador
-    Port ( a  : in  STD_LOGIC_VECTOR (49 downto 0);
-           b  : in  STD_LOGIC_VECTOR (49 downto 0);
-           op : in  STD_LOGIC;
-           s  : out STD_LOGIC_VECTOR (49 downto 0));
-end component;
-
-component bloque_division
-    Port ( clk, rst  : in  STD_LOGIC;
-           inicio    : in  STD_LOGIC;
-           dividendo : in  STD_LOGIC_VECTOR (49 downto 0);
-           divisor   : in  STD_LOGIC_VECTOR (31 downto 0);
-           cociente  : out STD_LOGIC_VECTOR (31 downto 0);
-           final     : out STD_LOGIC);
-end component;
-
-component xs3
-    Port ( clk, rst : in  STD_LOGIC;
-           inicio   : in  STD_LOGIC;
-           bin_in   : in  STD_LOGIC_VECTOR (31 downto 0);
-           bcd      : out STD_LOGIC_VECTOR (39 downto 0);
-           final    : out STD_LOGIC);
+component alu
+    Port ( A  : in  STD_LOGIC_VECTOR (49 downto 0);
+           B  : in  STD_LOGIC_VECTOR (49 downto 0);
+           M  : in  STD_LOGIC;
+           s1 : in  STD_LOGIC;
+           s0 : in  STD_LOGIC;
+           S  : out STD_LOGIC_VECTOR (49 downto 0));
 end component;
 
 component banco_pivotes
@@ -134,21 +110,13 @@ signal data, q        : STD_LOGIC_VECTOR (31 downto 0);
 -- multiplicador
 signal mul_a, mul_b : STD_LOGIC_VECTOR (24 downto 0);
 signal producto     : STD_LOGIC_VECTOR (49 downto 0);
--- sumador/restador
-signal sr_a, sr_b, resultado : STD_LOGIC_VECTOR (49 downto 0);
-signal sr_op                 : STD_LOGIC;
--- division
-signal ini_div, fin_div : STD_LOGIC;
-signal dividendo        : STD_LOGIC_VECTOR (49 downto 0);
-signal divisor, cociente : STD_LOGIC_VECTOR (31 downto 0);
+-- ALU
+signal alu_a, alu_b, resultado : STD_LOGIC_VECTOR (49 downto 0);
+signal alu_m, alu_s1, alu_s0   : STD_LOGIC;
 -- banco de pivotes
-signal clr_banco, we_banco : STD_LOGIC;
-signal dir_banco           : STD_LOGIC_VECTOR (2 downto 0);
+signal clr_banco, we_banco   : STD_LOGIC;
+signal dir_banco             : STD_LOGIC_VECTOR (2 downto 0);
 signal dato_banco, piv_banco : STD_LOGIC_VECTOR (31 downto 0);
--- XS3
-signal ini_xs3, fin_xs3 : STD_LOGIC;
-signal bin_xs3          : STD_LOGIC_VECTOR (31 downto 0);
-signal bcd_xs3          : STD_LOGIC_VECTOR (39 downto 0);
 
 begin
 
@@ -157,12 +125,10 @@ U_ASM : asm_bareiss port map (
     dira => dira, a => a,
     rd_add => rd_add, wr_add => wr_add, we => we, data => data, q => q,
     mul_a => mul_a, mul_b => mul_b, producto => producto,
-    sr_a => sr_a, sr_b => sr_b, sr_op => sr_op, resultado => resultado,
-    ini_div => ini_div, dividendo => dividendo, divisor => divisor,
-    cociente => cociente, fin_div => fin_div,
+    alu_a => alu_a, alu_b => alu_b, alu_m => alu_m, alu_s1 => alu_s1, alu_s0 => alu_s0,
+    resultado => resultado,
     clr_banco => clr_banco, we_banco => we_banco, dir_banco => dir_banco,
     dato_banco => dato_banco, piv_banco => piv_banco,
-    ini_xs3 => ini_xs3, bin_xs3 => bin_xs3, bcd_xs3 => bcd_xs3, fin_xs3 => fin_xs3,
     det => det, det_neg => det_neg, pivote => pivote, piv_neg => piv_neg,
     final => final);
 
@@ -173,15 +139,8 @@ U_RAM : RAM_memory port map (
 
 U_MUL : multiplicador port map (a => mul_a, b => mul_b, p => producto);
 
-U_SR : sumador_restador port map (a => sr_a, b => sr_b, op => sr_op, s => resultado);
-
-U_DIV : bloque_division port map (
-    clk => clk, rst => rst, inicio => ini_div, dividendo => dividendo,
-    divisor => divisor, cociente => cociente, final => fin_div);
-
-U_XS3 : xs3 port map (
-    clk => clk, rst => rst, inicio => ini_xs3, bin_in => bin_xs3,
-    bcd => bcd_xs3, final => fin_xs3);
+U_ALU : alu port map (
+    A => alu_a, B => alu_b, M => alu_m, s1 => alu_s1, s0 => alu_s0, S => resultado);
 
 U_BANCO : banco_pivotes port map (
     clk => clk, rst => rst, clr => clr_banco, we => we_banco, dir_w => dir_banco,
