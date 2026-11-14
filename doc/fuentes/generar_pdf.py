@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Genera doc/Taller5_ASM_Bareiss_XS3.pdf (y las figuras en doc/figuras).
 
+Antes de dibujar verifica las reglas ASM (diagramas.verificar); si fallan, no genera nada.
+
 Requiere: reportlab, matplotlib (solo por las fuentes DejaVu) y Graphviz (dot).
 Uso (desde la raiz del repositorio):  python3 doc/fuentes/generar_pdf.py
 """
@@ -143,7 +145,7 @@ class Documento(BaseDocTemplate):
         canvas.saveState()
         canvas.setFont("DV", 7.5)
         canvas.setFillColor(colors.HexColor("#666666"))
-        canvas.drawString(0.8 * inch, 0.45 * inch, "Taller 5 · Determinante por Bareiss con salida BCD (XS3)")
+        canvas.drawString(0.8 * inch, 0.45 * inch, "Taller 5 · Determinante por Bareiss y conversión XS3")
         canvas.drawRightString(letter[0] - 0.8 * inch, 0.45 * inch, f"Página {doc.page}")
         canvas.restoreState()
 
@@ -161,7 +163,7 @@ class Documento(BaseDocTemplate):
 # Datos calculados
 # ---------------------------------------------------------------------------
 def traza_xs3(valor):
-    """Reproduce los estados S22-S25 para 'valor' (32 bits)."""
+    """Reproduce los estados x2 a x4 del ASM XS3 para 'valor' (32 bits)."""
     bcd = [0] * 10
     b = valor
     filas = []
@@ -175,17 +177,17 @@ def traza_xs3(valor):
     for cont in range(32):
         bcd[0] = (bcd[0] & 0b1110) | ((b >> 31) & 1)
         if cont >= 23:
-            filas.append([str(cont), "S23 (2)", reg(), ventana(),
-                          "último PASO 2 = PASO 5, va a S26" if cont == 31 else ""])
+            filas.append([str(cont), "x2 (2)", reg(), ventana(),
+                          "último PASO 2 = PASO 5, va a x5" if cont == 31 else ""])
         if cont == 31:
             break
         notas = []
         for d in range(10):
             if bcd[d] > 4:
-                notas.append(f"BCD({d}) = {bcd[d]:04b} > 0100: +3 = {bcd[d] + 3:04b}")
+                notas.append(f"dígito({d}) = {bcd[d]:04b} > 0100: +3 = {bcd[d] + 3:04b}")
                 bcd[d] += 3
         if cont >= 23:
-            filas.append(["", "S24 (3)", reg(), ventana(), "; ".join(notas) if notas else "ningún dígito > 4"])
+            filas.append(["", "x3 (3)", reg(), ventana(), "; ".join(notas) if notas else "ningún dígito > 4"])
         acarreo = 0
         for d in range(10):
             nuevo = ((bcd[d] << 1) | acarreo) & 0xF
@@ -193,11 +195,14 @@ def traza_xs3(valor):
             bcd[d] = nuevo
         b = (b << 1) & 0xFFFFFFFF
         if cont >= 23:
-            filas.append(["", "S25 (4)", reg(), ventana(), "corrimiento a la izquierda"])
+            filas.append(["", "x4 (4)", reg(), ventana(), "corrimiento a la izquierda"])
     return filas, bcd
 
 
 if __name__ == "__main__":
+    _, errores = diagramas.verificar()
+    if errores:
+        sys.exit("Errores en los diagramas ASM:\n" + "\n".join(errores))
     for nombre, f in diagramas.DIAGRAMAS.items():
         diagramas.render(nombre, f(), FIG)
     for dot in FIG.glob("*.dot"):

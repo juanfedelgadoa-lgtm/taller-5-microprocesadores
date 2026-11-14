@@ -5,22 +5,24 @@ Sirve para:
   1. Calcular el determinante y los pivotes que debe mostrar la FPGA, con la
      MISMA regla de busqueda de pivote que el ASM (primera fila r > k con
      a(r,k) /= 0). El ultimo pivote (posicion n del banco) es el determinante.
-  2. Escribir src/rom_matriz.vhd con la matriz que se quiera evaluar.
+  2. Cambiar la ROM (entidad rom_matriz, dentro de src/procesador_bareiss.vhd)
+     por la matriz que se quiera evaluar.
 
 Uso:
   python3 sim/modelo_referencia.py
       Muestra det y pivotes de las 8 matrices de prueba.
 
   python3 sim/modelo_referencia.py rom 3
-      Escribe src/rom_matriz.vhd con la matriz de prueba 3.
+      Pone la matriz de prueba 3 en la ROM de src/procesador_bareiss.vhd.
 
   python3 sim/modelo_referencia.py rom "2 1 3; 1 4 2; 3 2 5"
-      Escribe src/rom_matriz.vhd con esa matriz (filas separadas por ';').
+      Pone esa matriz en la ROM (filas separadas por ';').
 """
 import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
+ARCHIVO_PROCESADOR = RAIZ / "src" / "procesador_bareiss.vhd"
 
 # Matrices de prueba (todas simetricas, elementos en [-32, 31]).
 MATRICES = [
@@ -65,7 +67,7 @@ MATRICES = [
      [-31, -24, -28, 28, -30]],
 ]
 
-MATRIZ_POR_DEFECTO = 3       # la que queda en src/rom_matriz.vhd
+MATRIZ_POR_DEFECTO = 3       # la que queda en la ROM de src/procesador_bareiss.vhd
 
 
 def bareiss(a):
@@ -132,7 +134,7 @@ def validar(a):
 
 
 def texto_rom(a):
-    """Contenido de src/rom_matriz.vhd para la matriz a (orden por columnas)."""
+    """Bloque de la ROM (entidad rom_matriz) para la matriz a, en orden por columnas."""
     validar(a)
     n = len(a)
     det, piv, inter = bareiss(a)
@@ -149,8 +151,7 @@ def texto_rom(a):
 -- ROM DE LA MATRIZ (32 x 6 bits, lectura combinacional)
 --
 -- Hace parte de la arquitectura del procesador: para calcular el determinante
--- de otra matriz se cambia este archivo y se vuelve a programar la FPGA.
--- Archivo generado con: python3 sim/modelo_referencia.py rom ...
+-- de otra matriz se cambia este bloque y se vuelve a programar la FPGA.
 --
 -- Posicion 00h = n; luego los elementos a(i,j) por columnas (a11, a21, ...),
 -- como en la Figura 1 del taller. Datos en complemento a 2 (-32 a 31).
@@ -178,8 +179,21 @@ end Behavioral;
 """
 
 
-def escribir_rom(a, ruta=RAIZ / "src" / "rom_matriz.vhd"):
-    Path(ruta).write_text(texto_rom(a), encoding="ascii")
+INICIO_ROM = "-- >>> INICIO ROM"
+FIN_ROM = "-- <<< FIN ROM"
+
+
+def escribir_rom(a, destino=None, origen=ARCHIVO_PROCESADOR):
+    """Cambia el bloque de la ROM (entre las marcas INICIO ROM y FIN ROM) de
+    src/procesador_bareiss.vhd. Con destino se escribe una copia en otra ruta y
+    el archivo original no se toca."""
+    texto = Path(origen).read_text(encoding="ascii")
+    i = texto.index(INICIO_ROM)
+    i = texto.index("\n", i) + 1                 # despues de la linea de la marca
+    f = texto.index(FIN_ROM, i)
+    nuevo = texto[:i] + texto_rom(a) + texto[f:]
+    ruta = Path(destino) if destino else Path(origen)
+    ruta.write_text(nuevo, encoding="ascii")
     return ruta
 
 
@@ -191,7 +205,7 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "rom":
         arg = sys.argv[2]
         a = MATRICES[int(arg)] if arg.isdigit() else leer_matriz(arg)
-        ruta = escribir_rom(a, sys.argv[3] if len(sys.argv) > 3 else RAIZ / "src" / "rom_matriz.vhd")
+        ruta = escribir_rom(a, sys.argv[3] if len(sys.argv) > 3 else None)
         det, piv, inter = bareiss(a)
         print(f"Escrito {ruta}")
         print(f"det = {det}   display = '{texto_display(det)}'")

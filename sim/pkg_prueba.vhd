@@ -8,7 +8,6 @@
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use ieee.std_logic_unsigned.all;
 
 package pkg_prueba is
 
@@ -24,7 +23,6 @@ package pkg_prueba is
 
     function bareiss_ref (m_in : matriz_r; n : integer) return resultado_ref;
     function texto_valor (v : integer) return string;                      -- signo + 10 digitos
-    function texto_bcd (b : std_logic_vector(39 downto 0); ng : std_logic) return string;
     function texto_display (v : integer) return string;                    -- signo + 7 digitos
 
 end package pkg_prueba;
@@ -78,22 +76,6 @@ package body pkg_prueba is
         for d in 11 downto 2 loop
             t(d) := character'val(character'pos('0') + (x mod 10));
             x := x / 10;
-        end loop;
-        return t;
-    end function;
-
-    function texto_bcd (b : std_logic_vector(39 downto 0); ng : std_logic) return string is
-        variable t   : string(1 to 11);
-        variable dig : integer;
-    begin
-        if ng = '1' then t(1) := '-'; else t(1) := ' '; end if;
-        for d in 0 to 9 loop
-            dig := conv_integer(b(4*d + 3 downto 4*d));
-            if dig <= 9 then
-                t(11 - d) := character'val(character'pos('0') + dig);
-            else
-                t(11 - d) := '?';
-            end if;
         end loop;
         return t;
     end function;

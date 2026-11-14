@@ -6,9 +6,10 @@
 --   3. Lee los 8 digitos decodificando an/seg durante un barrido (8 ms):
 --        dir_p = 0  -> determinante
 --        dir_p = 2  -> pivote 2
+--        dir_p = 3  -> pivote 3 (negativo en la matriz por defecto)
 --        dir_p = n  -> ultimo pivote (= determinante)
 -- Los valores esperados se calculan de la ROM con pkg_prueba.
--- Simula unos 70 ms (7 millones de ciclos): tarda algunos minutos.
+-- Simula unos 80 ms (8 millones de ciclos): tarda algunos minutos.
 --
 -- Solo para simulacion (usa variables, integer, real, string y wait).
 ----------------------------------------------------------------------------------
@@ -179,6 +180,13 @@ begin
         wait for 100 us;
         lee_display(txt);
         compara("dir_p=2 (pivote 2)", txt, texto_display(ref.piv(2)));
+
+        if n >= 3 then
+            dir_p <= "011";
+            wait for 100 us;
+            lee_display(txt);
+            compara("dir_p=3 (pivote 3)", txt, texto_display(ref.piv(3)));
+        end if;
 
         dir_p <= conv_std_logic_vector(n, 3);
         wait for 100 us;

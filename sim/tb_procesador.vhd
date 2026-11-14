@@ -1,9 +1,9 @@
 ----------------------------------------------------------------------------------
--- TESTBENCH DEL PROCESADOR (autoverificado)
+-- TESTBENCH DEL PROCESADOR DE BAREISS (autoverificado)
 --
--- Lee la matriz de src/rom_matriz.vhd (con otra instancia de la misma ROM),
--- calcula el determinante y los pivotes esperados con pkg_prueba y los compara
--- con las salidas del procesador:
+-- Lee la matriz de la ROM (otra instancia de rom_matriz), calcula el
+-- determinante y los pivotes esperados con pkg_prueba y los compara con las
+-- salidas binarias del procesador:
 --   1. Pulso de inicio (un ciclo, como el que entrega el antirrebote).
 --   2. Espera final y compara det.
 --   3. Recorre dir_p = 1..n y compara cada pivote (el pivote n debe ser det).
@@ -23,14 +23,12 @@ end tb_procesador;
 
 architecture sim of tb_procesador is
 
-    component procesador
+    component procesador_bareiss
         Port ( clk, rst : in  STD_LOGIC;
                inicio   : in  STD_LOGIC;
                dir_p    : in  STD_LOGIC_VECTOR (2 downto 0);
-               det      : out STD_LOGIC_VECTOR (39 downto 0);
-               det_neg  : out STD_LOGIC;
-               pivote   : out STD_LOGIC_VECTOR (39 downto 0);
-               piv_neg  : out STD_LOGIC;
+               det      : out STD_LOGIC_VECTOR (31 downto 0);
+               pivote   : out STD_LOGIC_VECTOR (31 downto 0);
                final    : out STD_LOGIC);
     end component;
 
@@ -45,18 +43,18 @@ architecture sim of tb_procesador is
     signal rst     : std_logic := '1';
     signal inicio  : std_logic := '0';
     signal dir_p   : std_logic_vector(2 downto 0) := "000";
-    signal det     : std_logic_vector(39 downto 0);
-    signal pivote  : std_logic_vector(39 downto 0);
-    signal det_neg, piv_neg, final : std_logic;
+    signal det     : std_logic_vector(31 downto 0);
+    signal pivote  : std_logic_vector(31 downto 0);
+    signal final   : std_logic;
     signal dir_tb  : std_logic_vector(4 downto 0) := "00000";
     signal a_tb    : std_logic_vector(5 downto 0);
     signal fin_sim : boolean := false;
 
 begin
 
-    uut : procesador port map (
+    uut : procesador_bareiss port map (
         clk => clk, rst => rst, inicio => inicio, dir_p => dir_p,
-        det => det, det_neg => det_neg, pivote => pivote, piv_neg => piv_neg, final => final);
+        det => det, pivote => pivote, final => final);
 
     U_ROM_TB : rom_matriz port map (dira => dir_tb, a => a_tb);   -- lectura de la matriz
 
@@ -69,7 +67,6 @@ begin
         variable dir     : integer;
         variable errores : integer := 0;
         variable ciclos  : integer;
-        variable txt     : string(1 to 11);
 
         procedure espera_final (maximo : integer; c : out integer) is
             variable cc : integer := 0;
@@ -89,13 +86,15 @@ begin
             inicio <= '0';
         end procedure;
 
-        procedure compara (nombre : string; obtenido, esperado : string) is
+        procedure compara (nombre : string; obtenido : std_logic_vector; esperado : integer) is
+            variable v : integer;
         begin
-            if obtenido = esperado then
-                report nombre & " = '" & obtenido & "'  OK";
+            v := conv_integer(signed(obtenido));
+            if v = esperado then
+                report nombre & " = " & texto_valor(v) & "  OK";
             else
-                report nombre & " = '" & obtenido & "'  esperado '" & esperado & "'  ERROR"
-                    severity error;
+                report nombre & " = " & texto_valor(v) & "  esperado " & texto_valor(esperado) &
+                       "  ERROR" severity error;
                 errores := errores + 1;
             end if;
         end procedure;
@@ -140,25 +139,24 @@ begin
             end if;
             report "Corrida " & integer'image(corrida) & ": final = 1 en " &
                    integer'image(ciclos) & " ciclos";
-            compara("   det          ", texto_bcd(det, det_neg), texto_valor(ref.det));
+            compara("   det           ", det, ref.det);
 
             for kk in 1 to n loop
                 dir_p <= conv_std_logic_vector(kk, 3);
-                wait for 3 * T;
-                espera_final(2000, ciclos);
-                compara("   pivote dir_p=" & integer'image(kk), texto_bcd(pivote, piv_neg),
-                        texto_valor(ref.piv(kk)));
+                wait for 2 * T;
+                compara("   pivote dir_p=" & integer'image(kk), pivote, ref.piv(kk));
             end loop;
 
             -- el ultimo pivote es el determinante
-            if texto_bcd(pivote, piv_neg) /= texto_bcd(det, det_neg) then
+            if pivote /= det then
                 report "   el pivote n no es igual al determinante  ERROR" severity error;
                 errores := errores + 1;
             end if;
 
+            -- dir_p = 0 no es un pivote: el banco entrega 0
             dir_p <= "000";
-            wait for 3 * T;
-            espera_final(2000, ciclos);
+            wait for 2 * T;
+            compara("   pivote dir_p=0", pivote, 0);
         end loop;
 
         if errores = 0 then
