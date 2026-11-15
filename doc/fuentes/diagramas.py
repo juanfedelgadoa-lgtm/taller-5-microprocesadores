@@ -105,198 +105,167 @@ class ASM:
 
 
 # ===========================================================================
-# ASM DE BAREISS
-# Conectores: A -> s1, B -> s4, C -> s9, D -> s14, E -> s16, F -> s18
+# ASM DE BAREISS (14 estados)
+# Conectores: A -> s1, B -> s2, C -> s6, D -> s7, E -> s11, F -> s13
 # ===========================================================================
-CONECTORES_BAREISS = {"A": "s1", "B": "s4", "C": "s9", "D": "s14", "E": "s16", "F": "s18"}
+CONECTORES_BAREISS = {"A": "s1", "B": "s2", "C": "s6", "D": "s7", "E": "s11", "F": "s13"}
 
 
 def asm_hoja1():
     g = ASM()
-    g.conector("cA", "A")
     g.bloque("s0")
-    g.estado("S0", "final = 0\ndira ← 0")
+    g.estado("S0", "final = 0")
     g.decision("D0", "inicio", "inicio = 1", "inicio = 0")
+    g.cond("C0", "n ← a   (ROM 00h)\ndira ← 1\ni ← 1 ;  j ← 1")
+    g.conector("cA", "A")
     g.bloque("s1")
-    g.estado("S1", "n ← a   (ROM 00h)\ndira ← 1\ni ← 1 ;  j ← 1")
-    g.bloque("s2")
-    g.estado("S2", "RAM(i,j) ← a\ndira ← dira + 1")
-    g.decision("D2a", "i = n", "i = n", "i ≠ n")
-    g.cond("C2a", "i ← i + 1")
-    g.cond("C2b", "i ← 1")
-    g.decision("D2b", "j = n", "j = n", "j ≠ n")
-    g.cond("C2c", "j ← j + 1")
-    g.bloque("s3")
-    g.estado("S3", "k ← 1 ;  p ← 1 ;  |p| ← 1\nsigno ← 0 ;  det ← 0\nbanco ← 0  (clr_banco = 1)")
+    g.estado("S1", "RAM(i,j) ← a\ndira ← dira + 1")
+    g.decision("D1a", "i = n", "i = n", "i ≠ n")
+    g.cond("C1a", "i ← i + 1")
+    g.decision("D1b", "j = n", "j = n", "j ≠ n")
+    g.cond("C1b", "i ← 1 ;  j ← j + 1")
+    g.cond("C1c", "k ← 1 ;  j ← 1\np ← 1 ;  signo ← 0")
     g.conector("cB", "B")
     g.flecha("S0", "D0")
     g.flecha("D0", "S0", "0")
-    g.flecha("D0", "S1", "1")
+    g.flecha("D0", "C0", "1")
+    g.flecha("C0", "S1")
     g.flecha("cA", "S1")
-    g.flecha("S1", "S2")
-    g.flecha("S2", "D2a")
-    g.flecha("D2a", "C2a", "0")
-    g.flecha("C2a", "S2")
-    g.flecha("D2a", "C2b", "1")
-    g.flecha("C2b", "D2b")
-    g.flecha("D2b", "C2c", "0")
-    g.flecha("C2c", "S2")
-    g.flecha("D2b", "S3", "1")
-    g.flecha("S3", "cB")
+    g.flecha("S1", "D1a")
+    g.flecha("D1a", "C1a", "0")
+    g.flecha("C1a", "S1")
+    g.flecha("D1a", "D1b", "1")
+    g.flecha("D1b", "C1b", "0")
+    g.flecha("C1b", "S1")
+    g.flecha("D1b", "C1c", "1")
+    g.flecha("C1c", "cB")
     return g
 
 
 def asm_hoja2():
     g = ASM()
     g.conector("cB", "B")
+    g.bloque("s2")
+    g.estado("S2", "piv ← a(k,k)   (qb, con j = k)\ni ← k + 1")
+    g.decision("D2", "a(k,k) = 0", "a(k,k) = 0", "a(k,k) ≠ 0")
+    g.cond("C2", "banco(k) ← a(k,k)")
+    g.bloque("s3")
+    g.estado("S3", "lee a(i,k)   (qa, con j = k)")
+    g.decision("D3a", "a(i,k) = 0", "a(i,k) = 0", "a(i,k) ≠ 0")
+    g.cond("C3a", "signo ← not signo")
+    g.decision("D3b", "i = n", "i = n", "i ≠ n")
+    g.cond("C3b", "det ← 0\n(singular)")
+    g.cond("C3c", "i ← i + 1")
     g.bloque("s4")
-    g.estado("S4", "piv ← RAM_A(k,k)")
-    g.decision("D4", "RAM_A(k,k) = 0", "a(k,k) = 0", "a(k,k) ≠ 0")
-    g.cond("C4", "i ← k + 1")
+    g.estado("S4", "RAM(i,j) ← a(k,j)\ntmp ← a(i,j)")
     g.bloque("s5")
-    g.estado("S5", "lee RAM_A(i,k)")
-    g.decision("D5a", "RAM_A(i,k) = 0", "a(i,k) = 0", "a(i,k) ≠ 0")
-    g.cond("C5a", "j ← k\nsigno ← not signo")
-    g.decision("D5b", "i = n", "i = n", "i ≠ n")
-    g.cond("C5b", "det ← 0\n(singular)")
-    g.cond("C5c", "i ← i + 1")
-    g.bloque("s6")
-    g.estado("S6", "RAM(i,j) ← RAM_A(k,j)\ntmp ← RAM_B(i,j)")
-    g.bloque("s7")
-    g.estado("S7", "RAM(k,j) ← tmp")
-    g.decision("D7", "j = n", "j = n", "j ≠ n")
-    g.cond("C7", "j ← j + 1")
-    g.bloque("s8")
-    g.estado("S8", "banco(k) ← piv\ni ← k + 1 ;  j ← k + 1")
+    g.estado("S5", "RAM(k,j) ← tmp")
+    g.decision("D5", "j = n", "j = n", "j ≠ n")
+    g.cond("C5a", "j ← k")
+    g.cond("C5b", "j ← j + 1")
     g.conector("cC", "C")
     g.conector("cF", "F")
-    g.flecha("cB", "S4")
-    g.flecha("S4", "D4")
-    g.flecha("D4", "S8", "0")
-    g.flecha("D4", "C4", "1")
-    g.flecha("C4", "S5")
-    g.flecha("S5", "D5a")
-    g.flecha("D5a", "C5a", "0")
-    g.flecha("D5a", "D5b", "1")
-    g.flecha("D5b", "C5b", "1")
-    g.flecha("D5b", "C5c", "0")
-    g.flecha("C5c", "S5")
-    g.flecha("C5b", "cF")
-    g.flecha("C5a", "S6")
-    g.flecha("S6", "S7")
-    g.flecha("S7", "D7")
-    g.flecha("D7", "C7", "0")
-    g.flecha("C7", "S6")
-    g.flecha("D7", "S4", "1")
-    g.flecha("S8", "cC")
+    g.flecha("cB", "S2")
+    g.flecha("S2", "D2")
+    g.flecha("D2", "C2", "0")
+    g.flecha("C2", "cC")
+    g.flecha("D2", "S3", "1")
+    g.flecha("S3", "D3a")
+    g.flecha("D3a", "C3a", "0")
+    g.flecha("C3a", "S4")
+    g.flecha("D3a", "D3b", "1")
+    g.flecha("D3b", "C3b", "1")
+    g.flecha("C3b", "cF")
+    g.flecha("D3b", "C3c", "0")
+    g.flecha("C3c", "S3")
+    g.flecha("S4", "S5")
+    g.flecha("S5", "D5")
+    g.flecha("D5", "C5a", "1")
+    g.flecha("C5a", "S2")
+    g.flecha("D5", "C5b", "0")
+    g.flecha("C5b", "S4")
     return g
 
 
 def asm_hoja3():
     g = ASM()
     g.conector("cC", "C")
-    g.bloque("s9")
-    g.estado("S9", "mul_a ← piv\nmul_b ← RAM_A(i,j)")
-    g.bloque("s10")
-    g.estado("S10", "t1 ← producto\nmul_a ← RAM_A(i,k)\nmul_b ← RAM_B(k,j)")
-    g.bloque("s11")
-    g.estado("S11", "t2 ← producto")
-    g.bloque("s12")
-    g.estado("S12", "t3 ← t1 − t2\n(sumador/restador, op = 1)")
-    g.bloque("s13")
-    g.estado("S13", "DIVISIÓN: inicio\ncociente ← 0\nsq ← t3(49) ⊕ p(31)")
-    g.decision("D13", "t3 < 0", "t3 < 0", "t3 ≥ 0")
-    g.cond("C13a", "residuo ← 0 − t3\n(sumador/restador)")
-    g.cond("C13b", "residuo ← t3")
+    g.bloque("s6")
+    g.estado("S6", "aik ← a(i,k)   (qa, con j = k)\nj ← k + 1")
     g.conector("cD", "D")
-    g.flecha("cC", "S9")
+    g.bloque("s7")
+    g.estado("S7", "mul_a ← piv\nmul_b ← a(i,j)")
+    g.bloque("s8")
+    g.estado("S8", "sr_a ← producto   (t1 = piv · a(i,j))\nmul_a ← aik\nmul_b ← a(k,j)")
+    g.bloque("s9")
+    g.estado("S9", "sr_b ← producto   (t2 = a(i,k) · a(k,j))\nop ← 1   (resta)")
+    g.bloque("s10")
+    g.estado("S10", "sr_a ← resultado   (residuo = t1 − t2)\nsr_b ← p ;  cociente ← 0\n"
+                    "sq ← signo(t1 − t2) ⊕ signo(p)\nop ← not sq   (mismo signo: resta)")
+    g.conector("cE", "E")
+    g.flecha("cC", "S6")
+    g.flecha("S6", "S7")
+    g.flecha("cD", "S7")
+    g.flecha("S7", "S8")
+    g.flecha("S8", "S9")
     g.flecha("S9", "S10")
-    g.flecha("S10", "S11")
-    g.flecha("S11", "S12")
-    g.flecha("S12", "S13")
-    g.flecha("S13", "D13")
-    g.flecha("D13", "C13a", "1")
-    g.flecha("D13", "C13b", "0")
-    g.flecha("C13a", "cD")
-    g.flecha("C13b", "cD")
+    g.flecha("S10", "cE")
     return g
 
 
 def asm_hoja4():
     g = ASM()
+    g.conector("cE", "E")
+    g.bloque("s11")
+    g.estado("S11", "DIVISIÓN\nresultado = residuo − p   (op = 1)\no residuo + p   (op = 0)")
+    g.decision("D11", "residuo = 0\n(sr_a = 0)", "residuo = 0", "residuo ≠ 0")
+    g.cond("C11a", "sr_a ← resultado\ncociente ← cociente + 1")
+    g.cond("C11b", "sr_b ← cociente ;  op ← 1\n(prepara 0 − cociente)")
+    g.bloque("s12")
+    g.estado("S12", "RAM(i,j) ← cociente si sq = 0\nRAM(i,j) ← 0 − cociente si sq = 1")
+    g.decision("D12a", "j = n", "j = n", "j ≠ n")
+    g.cond("C12a", "j ← j + 1")
+    g.decision("D12b", "i = n", "i = n", "i ≠ n")
+    g.cond("C12b", "i ← i + 1 ;  j ← k")
+    g.decision("D12c", "k + 1 = n", "k + 1 = n", "k + 1 ≠ n")
+    g.cond("C12c", "p ← piv ;  k ← k + 1\nj ← k + 1")
+    g.decision("D12d", "sq ⊕ signo", "sq ⊕ signo = 1", "sq ⊕ signo = 0")
+    g.cond("C12d", "det ← 0 − cociente")
+    g.cond("C12e", "det ← cociente")
     g.conector("cD", "D")
-    g.bloque("s14")
-    g.estado("S14", "DIVISIÓN: resta sucesiva\nsumador/restador: residuo − |p|")
-    g.decision("D14", "residuo − |p| ≥ 0", "residuo − |p| ≥ 0", "residuo − |p| < 0")
-    g.cond("C14", "residuo ← residuo − |p|\ncociente ← cociente + 1")
-    g.bloque("s15")
-    g.estado("S15", "escribe a(i,j) en las RAM")
-    g.decision("D15a", "sq", "sq = 1", "sq = 0")
-    g.cond("C15a", "RAM(i,j) ← 0 − cociente\n(sumador/restador)")
-    g.cond("C15b", "RAM(i,j) ← cociente")
-    g.decision("D15b", "j = n", "j = n", "j ≠ n")
-    g.cond("C15c", "j ← j + 1")
-    g.decision("D15c", "i = n", "i = n", "i ≠ n")
-    g.cond("C15d", "i ← i + 1\nj ← k + 1")
-    g.conector("cC1", "C")
-    g.conector("cC2", "C")
-    g.conector("cE", "E")
-    g.flecha("cD", "S14")
-    g.flecha("S14", "D14")
-    g.flecha("D14", "C14", "1")
-    g.flecha("C14", "S14")
-    g.flecha("D14", "S15", "0")
-    g.flecha("S15", "D15a")
-    g.flecha("D15a", "C15a", "1")
-    g.flecha("D15a", "C15b", "0")
-    g.flecha("C15a", "D15b")
-    g.flecha("C15b", "D15b")
-    g.flecha("D15b", "C15c", "0")
-    g.flecha("C15c", "cC1")
-    g.flecha("D15b", "D15c", "1")
-    g.flecha("D15c", "C15d", "0")
-    g.flecha("C15d", "cC2")
-    g.flecha("D15c", "cE", "1")
-    return g
-
-
-def asm_hoja5():
-    g = ASM()
-    g.conector("cE", "E")
-    g.bloque("s16")
-    g.estado("S16", "p ← piv\nk ← k + 1")
-    g.decision("D16a", "piv < 0", "piv < 0", "piv ≥ 0")
-    g.cond("C16a", "|p| ← 0 − piv\n(sumador/restador)")
-    g.cond("C16b", "|p| ← piv")
-    g.decision("D16b", "k + 1 = n", "k + 1 = n", "k + 1 ≠ n")
-    g.bloque("s17")
-    g.estado("S17", "lee RAM_A(n,n)")
-    g.decision("D17", "signo", "signo = 1", "signo = 0")
-    g.cond("C17a", "det ← 0 − RAM_A(n,n)\nbanco(n) ← 0 − RAM_A(n,n)")
-    g.cond("C17b", "det ← RAM_A(n,n)\nbanco(n) ← RAM_A(n,n)")
-    g.conector("cF", "F")
-    g.bloque("s18")
-    g.estado("S18", "final = 1\ndira ← 0")
-    g.decision("D18", "inicio", "inicio = 1", "inicio = 0")
+    g.conector("cC", "C")
     g.conector("cB", "B")
+    g.conector("cF", "F")
+    g.bloque("s13")
+    g.estado("S13", "final = 1")
+    g.decision("D13", "inicio", "inicio = 1", "inicio = 0")
+    g.cond("C13", "dira ← 1\ni ← 1 ;  j ← 1")
     g.conector("cA", "A")
-    g.flecha("cE", "S16")
-    g.flecha("S16", "D16a")
-    g.flecha("D16a", "C16a", "1")
-    g.flecha("D16a", "C16b", "0")
-    g.flecha("C16a", "D16b")
-    g.flecha("C16b", "D16b")
-    g.flecha("D16b", "cB", "0")
-    g.flecha("D16b", "S17", "1")
-    g.flecha("S17", "D17")
-    g.flecha("D17", "C17a", "1")
-    g.flecha("D17", "C17b", "0")
-    g.flecha("C17a", "S18")
-    g.flecha("C17b", "S18")
-    g.flecha("cF", "S18")
-    g.flecha("S18", "D18")
-    g.flecha("D18", "cA", "1")
-    g.flecha("D18", "S18", "0")
+    g.flecha("cE", "S11")
+    g.flecha("S11", "D11")
+    g.flecha("D11", "C11a", "0")
+    g.flecha("C11a", "S11")
+    g.flecha("D11", "C11b", "1")
+    g.flecha("C11b", "S12")
+    g.flecha("S12", "D12a")
+    g.flecha("D12a", "C12a", "0")
+    g.flecha("C12a", "cD")
+    g.flecha("D12a", "D12b", "1")
+    g.flecha("D12b", "C12b", "0")
+    g.flecha("C12b", "cC")
+    g.flecha("D12b", "D12c", "1")
+    g.flecha("D12c", "C12c", "0")
+    g.flecha("C12c", "cB")
+    g.flecha("D12c", "D12d", "1")
+    g.flecha("D12d", "C12d", "1")
+    g.flecha("D12d", "C12e", "0")
+    g.flecha("C12d", "S13")
+    g.flecha("C12e", "S13")
+    g.flecha("cF", "S13")
+    g.flecha("S13", "D13")
+    g.flecha("D13", "S13", "0")
+    g.flecha("D13", "C13", "1")
+    g.flecha("C13", "cA")
     return g
 
 
@@ -351,9 +320,9 @@ def asm_xs3():
     return g
 
 
-HOJAS_BAREISS = ["asm_hoja1", "asm_hoja2", "asm_hoja3", "asm_hoja4", "asm_hoja5"]
+HOJAS_BAREISS = ["asm_hoja1", "asm_hoja2", "asm_hoja3", "asm_hoja4"]
 CONSTRUCTORES = {"asm_hoja1": asm_hoja1, "asm_hoja2": asm_hoja2, "asm_hoja3": asm_hoja3,
-                 "asm_hoja4": asm_hoja4, "asm_hoja5": asm_hoja5, "asm_xs3": asm_xs3}
+                 "asm_hoja4": asm_hoja4, "asm_xs3": asm_xs3}
 
 
 # ===========================================================================
@@ -420,7 +389,7 @@ def transiciones_vhdl(ruta, var):
     """{estado: conjunto de estados siguientes} leido del 'case' del VHDL."""
     texto = Path(ruta).read_text(encoding="utf-8")
     ini = texto.index(f"case {var} is")
-    fin = ini + re.search(r"\n {8}when others", texto[ini:]).start()   # "when others" del case principal
+    fin = ini + re.search(r"\n {4}end case;", texto[ini:]).start()     # "end case;" del case principal
     partes = re.split(r"\n\s*when ([sx]\d+)\s*=>", texto[ini:fin])
     res = {}
     for estado, bloque in zip(partes[1::2], partes[2::2]):
@@ -465,23 +434,21 @@ def verificar():
 # VISTA GENERAL DEL ASM DE BAREISS
 # ===========================================================================
 GRUPOS_BAREISS = [
-    ("Carga de la matriz", "#eef4ff", ["s0", "s1", "s2", "s3"]),
-    ("Pivote e intercambio de filas", "#fff3e6", ["s4", "s5", "s6", "s7", "s8"]),
-    ("Actualización de a(i,j) y división", "#eefaf0", ["s9", "s10", "s11", "s12", "s13", "s14", "s15"]),
-    ("Siguiente paso, determinante y final", "#f6eefc", ["s16", "s17", "s18"]),
+    ("Carga de la matriz", "#eef4ff", ["s0", "s1"]),
+    ("Pivote e intercambio de filas", "#fff3e6", ["s2", "s3", "s4", "s5"]),
+    ("Actualización de a(i,j)", "#eefaf0", ["s6", "s7", "s8", "s9", "s10"]),
+    ("División, escritura y final", "#f6eefc", ["s11", "s12", "s13"]),
 ]
 TRANS_GENERAL = [
-    ("s0", "s0", "inicio=0"), ("s0", "s1", "inicio=1"), ("s1", "s2", ""),
-    ("s2", "s2", "copia"), ("s2", "s3", "i=n, j=n"), ("s3", "s4", ""),
-    ("s4", "s8", "a(k,k)≠0"), ("s4", "s5", "a(k,k)=0"),
-    ("s5", "s5", "a(i,k)=0, i≠n"), ("s5", "s6", "a(i,k)≠0"), ("s5", "s18", "i=n (det=0)"),
-    ("s6", "s7", ""), ("s7", "s6", "j≠n"), ("s7", "s4", "j=n"),
-    ("s8", "s9", ""), ("s9", "s10", ""), ("s10", "s11", ""), ("s11", "s12", ""),
-    ("s12", "s13", ""), ("s13", "s14", ""),
-    ("s14", "s14", "residuo≥|p|"), ("s14", "s15", "residuo<|p|"),
-    ("s15", "s9", "falta (i,j)"), ("s15", "s16", "i=n, j=n"),
-    ("s16", "s4", "k+1≠n"), ("s16", "s17", "k+1=n"), ("s17", "s18", ""),
-    ("s18", "s18", "inicio=0"), ("s18", "s1", "inicio=1"),
+    ("s0", "s0", "inicio=0"), ("s0", "s1", "inicio=1"),
+    ("s1", "s1", "copia"), ("s1", "s2", "i=n, j=n"),
+    ("s2", "s3", "a(k,k)=0"), ("s2", "s6", "a(k,k)≠0"),
+    ("s3", "s3", "a(i,k)=0, i≠n"), ("s3", "s4", "a(i,k)≠0"), ("s3", "s13", "i=n (det=0)"),
+    ("s4", "s5", ""), ("s5", "s4", "j≠n"), ("s5", "s2", "j=n"),
+    ("s6", "s7", ""), ("s7", "s8", ""), ("s8", "s9", ""), ("s9", "s10", ""), ("s10", "s11", ""),
+    ("s11", "s11", "residuo≠0"), ("s11", "s12", "residuo=0"),
+    ("s12", "s7", "j≠n"), ("s12", "s6", "j=n, i≠n"), ("s12", "s2", "k+1≠n"), ("s12", "s13", "k+1=n"),
+    ("s13", "s13", "inicio=0"), ("s13", "s1", "inicio=1"),
 ]
 
 
@@ -615,13 +582,12 @@ def _caja_gris(uc, cd, ent_uc, pc, est, sal_uc, ent_cd, sal_cd):
 
 def gris_proc():
     return _caja_gris(
-        "UNIDAD DE CONTROL\n\nregistro de estado st\n(s0 a s18, 5 bits)\nROM de entrada 2048 × 5\nROM de salida 8192 × 56",
-        "CAMINO DE DATOS\n\nROM, RAM A, RAM B,\n3 decodificadores dir_ram,\nmultiplicador, sumador/restador,\n"
-        "banco de pivotes,\n19 registros y sus MUX",
+        "UNIDAD DE CONTROL\n\nregistro de estado st\n(s0 a s13, 4 bits)\nROM de entrada 2048 × 4\nROM de salida 4096 × 41",
+        "CAMINO DE DATOS\n\nROM, RAM A, RAM B,\nmultiplicador, sumador/restador,\n"
+        "banco de pivotes (b1 a b4),\nregistros y sus MUX",
         "clk\nrst\ninicio",
-        "PC: palabra de control (55 bits)\n19 cargas (ld_x) + 16 bits de MUX de registros\n"
-        "+ 10 de RAM + 6 del sumador/restador\n+ 4 del banco de pivotes",
-        "señales de estado (9)\nz_a, i_n, j_n, k1_n, t3_neg,\nres_neg, sq, piv_neg, signo",
+        "PC: palabra de control (40 bits)\n18 cargas (ld_x) + 17 bits de MUX\n+ 4 de las RAM + 1 del banco",
+        "señales de estado (7)\nz_b, z_a, i_n, j_n,\nk1_n, z_res, sqs",
         "final", "clk, rst\ndir_p (3)", "det (32)\npivote (32)")
 
 
@@ -650,44 +616,28 @@ def camino_datos_proc():
   edge [fontname="{FUENTE}", fontsize=13, arrowsize=0.8];
   CNT [{reg}, label="contadores\\ndira, n, i, j, k"];
   ROM [{mem}, label="ROM\\n32 × 6"];
-  EXT [shape=box, label="extensión\\nde signo 6 → 32"];
-  MF [{mux}, label="mux fila / columna\\n(i, j, k, n)"];
-  DA [shape=box, label="dir_ram\\nlectura A"]; DB [shape=box, label="dir_ram\\nlectura B"];
-  DW [shape=box, label="dir_ram\\nescritura"];
-  MD [{mux}, label="mux data\\na | qa | tmp | ±cociente"];
-  RAMA [{mem}, label="RAM A\\n32 × 32"]; RAMB [{mem}, label="RAM B\\n32 × 32"];
-  Z [shape=ellipse, label="qa = 0 ?\\n(a la UC)"];
-  PIV [{reg}, label="piv"]; TMP [{reg}, label="tmp"];
-  MA [{reg}, label="mul_a"]; MB [{reg}, label="mul_b"];
+  DIR [shape=box, label="dir_ij, dir_kj\\n(direcciones)"];
+  MD [{mux}, label="data\\na | qb | tmp | ±cociente"];
+  RAMA [{mem}, label="RAM A\\nlee a(i,j)"]; RAMB [{mem}, label="RAM B\\nlee a(k,j)"];
+  PIV [{reg}, label="piv"]; AIK [{reg}, label="aik"]; TMP [{reg}, label="tmp"]; P [{reg}, label="p"];
+  BAN [{mem}, label="banco b1..b4"];
+  MA [{mux}, label="mul_a\\npiv | aik"]; MB [{mux}, label="mul_b\\nqa | qb"];
+  RMA [{reg}, label="mul_a"]; RMB [{reg}, label="mul_b"];
   MUL [{uf}, label="MULTIPLICADOR\\n25 × 25 → 50"];
-  T1 [{reg}, label="t1"]; T2 [{reg}, label="t2"]; T3 [{reg}, label="t3"];
-  RES [{reg}, label="residuo"]; COC [{reg}, label="cociente"];
-  PP [{reg}, label="p, |p|"];
-  XA [{mux}, label="mux sr_a\\n0 | t1 | residuo"];
-  XB [{mux}, label="mux sr_b\\n0 | t2 | t3 | |p| |\\ncociente | piv | qa"];
-  SR [{uf}, label="SUMADOR/\\nRESTADOR\\n50 bits (op)"];
-  DN [{mux}, label="±a(n,n)\\nqa | resultado"];
-  DET [{reg}, label="det"];
-  MBAN [{mux}, label="dato banco\\npiv | ±a(n,n)"];
-  BAN [{mem}, label="BANCO DE\\nPIVOTES 5 × 32"];
-  dirp [shape=plaintext, label="dir_p"];
+  XA [{mux}, label="sr_a\\nproducto | resultado"]; XB [{mux}, label="sr_b\\nproducto | p | cociente"];
+  RSA [{reg}, label="sr_a\\n(t1, residuo)"]; RSB [{reg}, label="sr_b\\n(t2, p, cociente)"];
+  SR [{uf}, label="SUMADOR/RESTADOR\\n50 bits (op)"];
+  COC [{reg}, label="cociente"]; DET [{reg}, label="det"];
+  dirp [shape=plaintext, label="dir_p"]; OP [{mux}, label="pivote\\nb1..b4 | det"];
   odet [shape=plaintext, label="det (32)"]; opiv [shape=plaintext, label="pivote (32)"];
-  CNT -> ROM [label="dira"]; ROM -> EXT -> MD;
-  CNT -> MF; MF -> DA; MF -> DB; MF -> DW;
-  DA -> RAMA [label="rd_add"]; DB -> RAMB [label="rd_add"];
-  DW -> RAMA [label="wr_add"]; DW -> RAMB;
-  MD -> RAMA [label="data"]; MD -> RAMB;
-  RAMA -> Z; RAMA -> PIV [label="qa"]; RAMA -> MA; RAMA -> MB; RAMA -> MD; RAMA -> XB; RAMA -> DN;
-  RAMB -> TMP [label="qb"]; RAMB -> MB;
-  TMP -> MD;
-  PIV -> MA; PIV -> XB; PIV -> PP; PIV -> MBAN;
-  MA -> MUL; MB -> MUL; MUL -> T1 [label="producto"]; MUL -> T2;
-  T1 -> XA; RES -> XA; T2 -> XB; T3 -> XB; PP -> XB; COC -> XB;
-  XA -> SR [label="sr_a"]; XB -> SR [label="sr_b"];
-  SR -> T3 [label="resultado"]; SR -> RES; SR -> PP; SR -> MD; SR -> DN;
-  DN -> DET; DN -> MBAN;
-  MBAN -> BAN; dirp -> BAN [label="dir_r"];
-  DET -> odet; BAN -> opiv;
+  CNT -> ROM [label="dira"]; CNT -> DIR; ROM -> MD [label="a"];
+  DIR -> RAMA; DIR -> RAMB; MD -> RAMA; MD -> RAMB;
+  RAMA -> AIK [label="qa"]; RAMA -> TMP; RAMA -> MB; RAMB -> PIV [label="qb"]; RAMB -> MB; RAMB -> MD; RAMB -> BAN;
+  TMP -> MD; PIV -> MA; AIK -> MA; PIV -> P;
+  MA -> RMA; MB -> RMB; RMA -> MUL; RMB -> MUL; MUL -> XA [label="producto"]; MUL -> XB;
+  XA -> RSA; XB -> RSB; P -> XB; COC -> XB; RSA -> SR; RSB -> SR;
+  SR -> XA [label="resultado"]; SR -> MD; SR -> DET; COC -> DET; COC -> MD;
+  BAN -> OP; DET -> OP; dirp -> OP; DET -> odet; OP -> opiv;
 }}
 """
 
@@ -813,17 +763,17 @@ def _columna(L, ids, mux, reg, unidad=None, salida=None):
 
 def cd_indices():
     L = [CAB_CD]
-    _columna(L, "dira", (["00: 0", "01: 1", "10: dira+1"], "sel_dira"), ("dira", 5, "ld_dira"), "+1",
+    _columna(L, "dira", (["0: 1", "1: dira+1"], "sel_dira"), ("dira", 5, "ld_dira"), "+1",
              "→ ROM (dirección)")
     L.append(_p("aS", "a(2..0) de la ROM"))
-    _columna(L, "n", None, ("n", 3, "ld_n"), None, "→ comparadores, MUX de fila/columna")
+    _columna(L, "n", None, ("n", 3, "ld_n"), None, "→ comparadores")
     L.append("  aS -> nR;")
     _columna(L, "i", (["00: 1", "01: i+1", "10: k+1"], "sel_i"), ("i", 3, "ld_i"), "+1",
-             "→ i = n, MUX de fila")
+             "→ i = n, dir_ij")
     _columna(L, "j", (["00: 1", "01: j+1", "10: k", "11: k+1"], "sel_j"), ("j", 3, "ld_j"), "+1",
-             "→ j = n, columna de la RAM")
+             "→ j = n, dir_ij, dir_kj")
     _columna(L, "k", (["0: 1", "1: k+1"], "sel_k"), ("k", 3, "ld_k"), "+1 (k+1)",
-             "→ MUX de i, j y fila/columna;<br/>k+1 → MUX de i y j")
+             "→ MUX de i y j, dir_kj")
     L += [_c("Cin", "i = n", "i_n"), _c("Cjn", "j = n", "j_n"), _c("Ckn", "k+1 = n", "k1_n"),
           "  iR -> Cin; jR -> Cjn; kU -> Ckn;",
           "  { rank=same; diraM; iM; jM; kM; }",
@@ -834,18 +784,14 @@ def cd_indices():
 
 def cd_direcciones():
     L = [CAB_CD]
-    L += [_p("ent", "i, j, k, n (registros)"),
-          _m("Mfra", ["00: i", "01: k", "10: n"], "sel_fra"), _m("Mcra", ["00: j", "01: k", "10: n"], "sel_cra"),
-          _m("Mfrb", ["0: i", "1: k"], "sel_frb"), _p("cj1", "j"),
-          _m("Mfw", ["0: i", "1: k"], "sel_fw"), _p("cj2", "j"),
-          _u("DA", "dir_ram (lectura A)<br/>5·(fila−1) + (col−1)", "#ffffff"),
-          _u("DB", "dir_ram (lectura B)", "#ffffff"), _u("DW", "dir_ram (escritura)", "#ffffff"),
-          _p("oA", "rd_add_a (5) → RAM A"), _p("oB", "rd_add_b (5) → RAM B"),
-          _p("oW", "wr_add (5) → RAM A y RAM B"),
-          """  ent -> Mfra; ent -> Mcra; ent -> Mfrb; ent -> Mfw;
-  Mfra -> DA [label="fila"]; Mcra -> DA [label="col"]; Mfrb -> DB [label="fila"]; cj1 -> DB [label="col"];
-  Mfw -> DW [label="fila"]; cj2 -> DW [label="col"]; DA -> oA; DB -> oB; DW -> oW;
-  { rank=same; Mfra; Mcra; Mfrb; cj1; Mfw; cj2; }
+    L += [_p("ij", "i, j"), _p("kj", "k, j"),
+          _u("DA", "dir_ij<br/>c = 5: \"11\" &amp; f<br/>si no: f &amp; c(1..0)", "#ffffff"),
+          _u("DB", "dir_kj<br/>(misma regla)", "#ffffff"),
+          _m("Mw", ["0: dir_ij", "1: dir_kj"], "sel_w"),
+          _p("oA", "rd_add → RAM A (qa = a(i,j))"), _p("oB", "rd_add → RAM B (qb = a(k,j))"),
+          _p("oW", "wr_add → RAM A y RAM B"),
+          """  ij -> DA; kj -> DB; DA -> oA; DB -> oB; DA -> Mw; DB -> Mw; Mw -> oW;
+  { rank=same; DA; DB; }
 }"""]
     return "\n".join(L)
 
@@ -853,25 +799,26 @@ def cd_direcciones():
 def cd_memorias():
     L = [CAB_CD]
     L += [_p("a", "a (6) de la ROM"), _u("EXT", "extensión de signo<br/>6 → 32", "#ffffff"),
-          _p("coc", "cociente"), _p("res", "resultado(31..0)"),
-          _m("Mdata", ["000: a", "001: qa", "010: tmp", "011: cociente", "100: resultado"], "sel_data"),
+          _p("coc", "cociente, resultado(31..0)"),
+          _m("Mpm", ["sq = 0: cociente", "sq = 1: 0 − cociente"], "(sq)"),
+          _m("Mdata", ["00: a", "01: qb", "10: tmp", "11: ±cociente"], "sel_data"),
           _u("RA", "<b>RAM A</b><br/>32 × 32<br/>(modelo del profesor)", C_MEM),
           _u("RB", "<b>RAM B</b><br/>32 × 32<br/>(modelo del profesor)", C_MEM),
-          _p("we", f'<font color="{ROJO}">we</font>, wr_add'), _p("rda", "rd_add_a"), _p("rdb", "rd_add_b"),
-          _c("Z", "qa = 0", "z_a"), _r("piv", "piv", 32, "ld_piv"), _r("tmp", "tmp", 32, "ld_tmp"),
-          _p("pn", f'piv(31) <font color="{ROJO}">→ piv_neg</font>'),
-          _m("Mnn", ["0: qa", "1: resultado"], "sel_nn"),
-          _m("Mdet", ["0: 0", "1: ±a(n,n)"], "sel_det"), _r("det", "det", 32, "ld_det"),
-          _m("Mban", ["0: dir k, dato piv", "1: dir n, dato ±a(n,n)"], "sel_banco"),
-          _u("BAN", f'<b>BANCO DE PIVOTES</b><br/>5 × 32<br/><font color="{ROJO}">clr_banco, we_banco</font>', C_MEM),
+          _p("we", f'<font color="{ROJO}">we</font>, wr_add'), _p("rda", "dir_ij"), _p("rdb", "dir_kj"),
+          _c("Z", "qa = 0", "z_a"), _c("Zb", "qb = 0", "z_b"),
+          _r("piv", "piv", 32, "ld_piv"), _r("tmp", "tmp", 32, "ld_tmp"), _r("aik", "aik", 32, "ld_aik"),
+          _u("BAN", f'<b>BANCO DE PIVOTES</b><br/>b1 a b4 (32 bits c/u)<br/>'
+                    f'<font color="{ROJO}">we_banco</font>; registro elegido por k', C_MEM),
+          _m("Mdet", ["00: 0", "01: cociente", "10: resultado"], "sel_det"), _r("det", "det", 32, "ld_det"),
+          _m("Mpiv", ["det si dir_p = n", "b1..b4 según dir_p", "0 si no"], "(dir_p)"),
           _p("dirp", "dir_p (switches)"), _p("odet", "<b>det</b> (32)"), _p("opiv", "<b>pivote</b> (32)"),
-          _p("qa_o", "qa → mul_a, mul_b, sr_b"), _p("qb_o", "qb → mul_b")]
-    L.append("""  a -> EXT -> Mdata; tmp -> Mdata; coc -> Mdata; res -> Mdata;
+          _p("qa_o", "qa → mul_b"), _p("qb_o", "qb → mul_b"), _p("coc2", "cociente, resultado")]
+    L.append("""  a -> EXT -> Mdata; coc -> Mpm; Mpm -> Mdata; tmp -> Mdata;
   Mdata -> RA [label="data"]; Mdata -> RB [label="data"]; we -> RA; we -> RB; rda -> RA; rdb -> RB;
-  RA -> Z [label="qa"]; RA -> piv; RA -> Mdata; RA -> Mnn; RA -> qa_o; RB -> tmp [label="qb"]; RB -> qb_o;
-  piv -> pn; res -> Mnn; Mnn -> Mdet [label="±a(n,n)"]; Mdet -> det; det -> odet;
-  piv -> Mban; Mnn -> Mban; Mban -> BAN; dirp -> BAN [label="dir_r"]; BAN -> opiv;
-  { rank=same; a; coc; res; }
+  RA -> Z [label="qa"]; RA -> tmp; RA -> aik; RA -> qa_o;
+  RB -> Zb [label="qb"]; RB -> piv; RB -> Mdata; RB -> BAN; RB -> qb_o;
+  coc2 -> Mdet; Mdet -> det; det -> odet; det -> Mpiv; BAN -> Mpiv; dirp -> Mpiv; Mpiv -> opiv;
+  { rank=same; a; coc; }
   { rank=same; we; rda; rdb; }
 }""")
     return "\n".join(L)
@@ -879,39 +826,28 @@ def cd_memorias():
 
 def cd_aritmetica():
     L = [CAB_CD]
-    # multiplicador
-    L += [_m("Mma", ["0: piv", "1: qa"], "sel_ma"), _m("Mmb", ["0: qa", "1: qb"], "sel_mb"),
+    L += [_m("Mma", ["0: piv", "1: aik"], "sel_ma"), _m("Mmb", ["0: qa", "1: qb"], "sel_mb"),
           _r("ma", "mul_a", 25, "ld_ma"), _r("mb", "mul_b", 25, "ld_mb"),
-          _u("MUL", "<b>MULTIPLICADOR</b><br/>25 × 25 → 50"),
-          _r("t1", "t1", 50, "ld_t1"), _r("t2", "t2", 50, "ld_t2"),
-          _p("t1S", "→ sr_a"), _p("t2S", "→ sr_b"),
-          "  Mma -> ma; Mmb -> mb; ma -> MUL; mb -> MUL; MUL -> t1 [label=\"producto\"]; MUL -> t2;",
-          "  t1 -> t1S; t2 -> t2S;"]
-    # sumador/restador
-    L += [_m("Msra", ["00: 0", "01: t1", "10: residuo"], "sel_sra"),
-          _m("Msrb", ["000: 0", "001: t2", "010: t3", "011: |p|", "100: cociente", "101: piv", "110: qa"],
-             "sel_srb"),
-          _u("SR", f'<b>SUMADOR/RESTADOR</b><br/>50 bits<br/><font color="{ROJO}">op</font>'),
-          _p("SRS", f'<b>resultado</b> (50) → t3, residuo, |p|,<br/>RAM (data), ±a(n,n);<br/>'
-                    f'resultado(49) <font color="{ROJO}">→ res_neg</font>'),
-          "  Msra -> SR [label=\"sr_a\"]; Msrb -> SR [label=\"sr_b\"]; SR -> SRS;"]
-    # registros que cargan el resultado
-    _columna(L, "t3", None, ("t3", 50, "ld_t3"), None,
-             f'→ sr_b, residuo;<br/>t3(49) <font color="{ROJO}">→ t3_neg</font>')
-    L += [_p("t3E", "resultado"), "  t3E -> t3R;"]
-    _columna(L, "res", (["0: t3", "1: resultado"], "sel_res"), ("residuo", 50, "ld_res"), None, "→ sr_a")
-    _columna(L, "pabs", (["00: 1", "01: piv", "10: resultado"], "sel_pabs"), ("|p|", 32, "ld_pabs"), None,
-             "→ sr_b")
+          _u("MUL", "<b>MULTIPLICADOR</b><br/>producto = mul_a × mul_b"),
+          _m("Msra", ["0: producto", "1: resultado"], "sel_sra"),
+          _m("Msrb", ["00: producto", "01: p", "10: cociente"], "sel_srb"),
+          _r("sra", "sr_a", 50, "ld_sra"), _r("srb", "sr_b", 50, "ld_srb"),
+          _m("Mop", ["0: 1 (resta)", "1: not (resultado(49) ⊕ p(31))"], "sel_op"), _r("op", "op", 1, "ld_op"),
+          _u("SR", f'<b>SUMADOR/RESTADOR</b><br/>resultado = sr_a + sr_b (op = 0)<br/>o sr_a − sr_b (op = 1)'),
+          _c("Zr", "sr_a = 0", "z_res"),
+          _p("SRS", "resultado (50) → sr_a, det, RAM (data)"),
+          "  Mma -> ma; Mmb -> mb; ma -> MUL; mb -> MUL; MUL -> Msra [label=\"producto\"]; MUL -> Msrb;",
+          "  Msra -> sra; Msrb -> srb; sra -> SR; srb -> SR; Mop -> op; op -> SR; SR -> SRS; sra -> Zr;",
+          "  SR -> Msra [label=\"resultado\", constraint=false];"]
     _columna(L, "coc", (["0: 0", "1: cociente+1"], "sel_coc"), ("cociente", 32, "ld_coc"), "+1",
-             "→ sr_b, RAM (data)")
-    _columna(L, "p", (["0: 1", "1: piv"], "sel_p"), ("p", 32, "ld_p"), None, "p(31) → xor")
-    L += [_p("xE", "t3(49) xor p(31)"), _r("sqR", "sq", 1, "ld_sq"),
-          _p("sqS", f'<font color="{ROJO}">→ sq</font>'), "  xE -> sqR; sqR -> sqS;"]
-    _columna(L, "sg", (["0: 0", "1: not signo"], "sel_signo"), ("signo", 1, "ld_signo"), "not",
-             f'<font color="{ROJO}">→ signo</font>')
-    L += ["  { rank=same; Mma; Mmb; Msra; Msrb; }",
-          "  { rank=same; t3E; resM; pabsM; cocM; pM; xE; sgM; }",
-          "  t1S -> t3E [style=invis]; SRS -> t3E [style=invis];", "}"]
+             "→ sr_b, det, RAM (data)")
+    _columna(L, "p", (["0: 1", "1: piv"], "sel_p"), ("p", 32, "ld_p"), None, "→ sr_b; p(31) → sq, op")
+    L += [_p("xE", "resultado(49) ⊕ p(31)"), _r("sqR", "sq", 1, "ld_sq"),
+          _p("sqS", f'<font color="{ROJO}">sq ⊕ signo → sqs</font>'), "  xE -> sqR; sqR -> sqS;"]
+    _columna(L, "sg", (["0: 0", "1: not signo"], "sel_signo"), ("signo", 1, "ld_signo"), "not", "→ sqs")
+    L += ["  { rank=same; Mma; Mmb; }",
+          "  { rank=same; cocM; pM; xE; sgM; }",
+          "  SRS -> cocM [style=invis];", "}"]
     return "\n".join(L)
 
 
@@ -971,9 +907,9 @@ def _uc(ent_sig, ent_pc, n, rom_e, rom_s, salidas):
 
 
 def uc_proc():
-    return _uc("inicio\nz_a, i_n, j_n,\nk1_n, res_neg\n(6 entradas)",
-               "z_a, i_n, j_n, t3_neg,\nres_neg, sq, piv_neg, signo\n(8 condiciones)",
-               5, "2^(5+6) × 5\\n= 2048 × 5", "2^(5+8) × 56\\n= 8192 × 56", "PC (55)\nfinal")
+    return _uc("inicio\nz_b, z_a, i_n, j_n,\nk1_n, z_res\n(7 entradas)",
+               "inicio, z_b, z_a, i_n, j_n,\nk1_n, z_res, sqs\n(8 condiciones)",
+               4, "2^(4+7) × 4\\n= 2048 × 4", "2^(4+8) × 41\\n= 4096 × 41", "PC (40)\nfinal")
 
 
 def uc_vis():

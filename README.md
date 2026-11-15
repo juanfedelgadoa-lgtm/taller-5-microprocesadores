@@ -11,7 +11,7 @@ El diseño tiene cuatro bloques:
 |---|---|---|
 | Antirrebote | `src/antirrebote.vhd` | El único antirrebote, para el botón de inicio |
 | Divisor de frecuencia | `src/divisor_frecuencia.vhd` | Pulso de 1 ms y onda de 1 s (reloj de 100 MHz) |
-| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss (19 estados), ROM, dos RAM del modelo del profesor, banco de pivotes y las dos únicas unidades funcionales: multiplicador y sumador/restador. No hay ALU. |
+| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss en alto nivel (un solo process, 14 estados), como los ejemplos del profesor. Usa la ROM, dos RAM del modelo del profesor, un banco de pivotes y las dos únicas unidades funcionales: multiplicador y sumador/restador. No hay ALU. |
 | Visualizador | `src/visualizador.vhd` | ASM del XS3 (6 estados, uno por paso) y display de 8 dígitos, en el mismo archivo. Trabaja en paralelo con el procesador y tiene sus propias unidades. |
 
 `src/det_bareiss.vhd` es el tope para ISE: solo conecta los cuatro bloques
@@ -33,17 +33,17 @@ verificación de sus reglas, simulación y código):
 Las secciones 9 a 11 del documento siguen el procedimiento de la guía del curso
 para pasar del ASM al hardware y dicen qué debe aparecer en la síntesis de ISE:
 
-- **Camino de datos**: 19 registros con sus MUX y cargas, multiplicador,
-  sumador/restador, ROM, RAM A y RAM B, banco de pivotes y 9 señales de estado.
-- **Palabra de control**: 55 bits (visualizador: 12).
-- **Unidad de control** (Mealy, 19 estados, 5 flip-flops): ROM de entrada
-  2048 × 5 y ROM de salida 8192 × 56, con el contenido de las dos ROM
+- **Camino de datos**: 18 registros con sus MUX y cargas, banco de pivotes b1 a b4,
+  multiplicador, sumador/restador, ROM, RAM A y RAM B, y 7 señales de estado.
+- **Palabra de control**: 40 bits (visualizador: 12).
+- **Unidad de control** (Mealy, 14 estados, 4 flip-flops): ROM de entrada
+  2048 × 4 y ROM de salida 4096 × 41, con el contenido de las dos ROM
   (visualizador: 64 × 3 y 256 × 12).
 - **Comprobación**: `doc/fuentes/uc_cd.py` simula ese CD y esa UC ciclo a ciclo y
   da los mismos resultados y ciclos que el VHDL en las 8 matrices
   (`sim/resultado_modelo_uc_cd.txt`).
-- **Síntesis esperada**: 2 FSM (19 y 6 estados), 2 RAM distribuidas de 32 × 32,
-  1 multiplicador 25 × 25 (2 DSP48E1), unos 770 flip-flops y 1 000 LUT
+- **Síntesis esperada**: 2 FSM (14 y 6 estados), 2 RAM distribuidas de 32 × 32,
+  1 multiplicador 25 × 25 (2 DSP48E1), unos 670 flip-flops y 900 LUT
   (estimación con Yosys en `sim/estimacion_yosys.txt`; ISE dará valores parecidos).
 Las figuras sueltas están en [`doc/figuras/`](doc/figuras).
 

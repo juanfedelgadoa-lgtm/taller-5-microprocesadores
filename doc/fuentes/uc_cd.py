@@ -33,20 +33,18 @@ def sext(x, bits):
 # ===========================================================================
 # PROCESADOR DE BAREISS
 # ===========================================================================
-ESTADOS_P = [f"s{i}" for i in range(19)]
+ESTADOS_P = [f"s{i}" for i in range(14)]
 
 # Senales de estado (CD -> UC). La entrada externa inicio tambien llega a la UC.
 SENALES_P = [
     ("inicio", "entrada externa", "Pulso del antirrebote"),
-    ("z_a", "qa = 0", "Comparador de 32 bits de la salida de la RAM A con cero"),
+    ("z_b", "a(k,k) = 0", "Comparador de 32 bits de qb (salida de la RAM B) con cero"),
+    ("z_a", "a(i,k) = 0", "Comparador de 32 bits de qa (salida de la RAM A) con cero"),
     ("i_n", "i = n", "Comparador de 3 bits"),
     ("j_n", "j = n", "Comparador de 3 bits"),
     ("k1_n", "k + 1 = n", "Incrementador de k y comparador de 3 bits"),
-    ("t3_neg", "t3 < 0", "Bit 49 del registro t3"),
-    ("res_neg", "residuo − |p| < 0", "Bit 49 de la salida del sumador/restador"),
-    ("sq", "sq = 1", "Registro del signo del cociente"),
-    ("piv_neg", "piv < 0", "Bit 31 del registro piv"),
-    ("signo", "signo = 1", "Registro de paridad de intercambios"),
+    ("z_res", "residuo = 0", "Comparador de 50 bits de sr_a con cero"),
+    ("sqs", "sq ⊕ signo = 1", "Compuerta XOR de los registros sq y signo"),
 ]
 
 # Campos de la palabra de control: (nombre, bits, grupo, que controla, codigos)
@@ -59,56 +57,43 @@ CAMPOS_P = [
     ("ld_k", 1, "ld", "carga k", "1 = carga"),
     ("ld_piv", 1, "ld", "carga piv", "1 = carga"),
     ("ld_p", 1, "ld", "carga p", "1 = carga"),
-    ("ld_pabs", 1, "ld", "carga |p|", "1 = carga"),
-    ("ld_signo", 1, "ld", "carga signo", "1 = carga"),
+    ("ld_aik", 1, "ld", "carga aik", "1 = carga"),
     ("ld_tmp", 1, "ld", "carga tmp", "1 = carga"),
+    ("ld_signo", 1, "ld", "carga signo", "1 = carga"),
+    ("ld_det", 1, "ld", "carga det", "1 = carga"),
     ("ld_ma", 1, "ld", "carga mul_a", "1 = carga"),
     ("ld_mb", 1, "ld", "carga mul_b", "1 = carga"),
-    ("ld_t1", 1, "ld", "carga t1", "1 = carga"),
-    ("ld_t2", 1, "ld", "carga t2", "1 = carga"),
-    ("ld_t3", 1, "ld", "carga t3", "1 = carga"),
-    ("ld_res", 1, "ld", "carga residuo", "1 = carga"),
+    ("ld_sra", 1, "ld", "carga sr_a", "1 = carga"),
+    ("ld_srb", 1, "ld", "carga sr_b", "1 = carga"),
+    ("ld_op", 1, "ld", "carga op", "1 = carga"),
     ("ld_coc", 1, "ld", "carga cociente", "1 = carga"),
     ("ld_sq", 1, "ld", "carga sq", "1 = carga"),
-    ("ld_det", 1, "ld", "carga det", "1 = carga"),
     # selectores de los MUX de entrada de los registros
-    ("sel_dira", 2, "sel", "MUX de dira", "00 = 0 · 01 = 1 · 10 = dira + 1"),
+    ("sel_dira", 1, "sel", "MUX de dira", "0 = 1 · 1 = dira + 1"),
     ("sel_i", 2, "sel", "MUX de i", "00 = 1 · 01 = i + 1 · 10 = k + 1"),
     ("sel_j", 2, "sel", "MUX de j", "00 = 1 · 01 = j + 1 · 10 = k · 11 = k + 1"),
     ("sel_k", 1, "sel", "MUX de k", "0 = 1 · 1 = k + 1"),
     ("sel_p", 1, "sel", "MUX de p", "0 = 1 · 1 = piv"),
-    ("sel_pabs", 2, "sel", "MUX de |p|", "00 = 1 · 01 = piv · 10 = resultado"),
     ("sel_signo", 1, "sel", "MUX de signo", "0 = 0 · 1 = not signo"),
-    ("sel_ma", 1, "sel", "MUX de mul_a", "0 = piv · 1 = qa"),
+    ("sel_det", 2, "sel", "MUX de det", "00 = 0 · 01 = cociente · 10 = resultado (0 − cociente)"),
+    ("sel_ma", 1, "sel", "MUX de mul_a", "0 = piv · 1 = aik"),
     ("sel_mb", 1, "sel", "MUX de mul_b", "0 = qa · 1 = qb"),
-    ("sel_res", 1, "sel", "MUX de residuo", "0 = t3 · 1 = resultado"),
+    ("sel_sra", 1, "sel", "MUX de sr_a", "0 = producto · 1 = resultado"),
+    ("sel_srb", 2, "sel", "MUX de sr_b", "00 = producto · 01 = p · 10 = cociente"),
+    ("sel_op", 1, "sel", "MUX de op", "0 = 1 (resta) · 1 = not (resultado(49) ⊕ p(31))"),
     ("sel_coc", 1, "sel", "MUX de cociente", "0 = 0 · 1 = cociente + 1"),
-    ("sel_det", 1, "sel", "MUX de det", "0 = 0 · 1 = ±a(n,n)"),
-    # memorias RAM A y RAM B
+    # memorias RAM A y RAM B y banco de pivotes
     ("we", 1, "ram", "escritura de RAM A y RAM B", "1 = escribe"),
-    ("sel_fra", 2, "ram", "fila de lectura de RAM A", "00 = i · 01 = k · 10 = n"),
-    ("sel_cra", 2, "ram", "columna de lectura de RAM A", "00 = j · 01 = k · 10 = n"),
-    ("sel_frb", 1, "ram", "fila de lectura de RAM B (columna = j)", "0 = i · 1 = k"),
-    ("sel_fw", 1, "ram", "fila de escritura (columna = j)", "0 = i · 1 = k"),
-    ("sel_data", 3, "ram", "dato que se escribe",
-     "000 = a (ROM) · 001 = qa · 010 = tmp · 011 = cociente · 100 = resultado (0 − cociente)"),
-    # sumador/restador
-    ("sel_sra", 2, "sr", "operando A del sumador/restador", "00 = 0 · 01 = t1 · 10 = residuo"),
-    ("sel_srb", 3, "sr", "operando B del sumador/restador",
-     "000 = 0 · 001 = t2 · 010 = t3 · 011 = |p| · 100 = cociente · 101 = piv · 110 = qa"),
-    ("op", 1, "sr", "operación del sumador/restador", "0 = suma · 1 = resta"),
-    # banco de pivotes
-    ("clr_banco", 1, "banco", "borra el banco", "1 = borra"),
-    ("we_banco", 1, "banco", "escribe un pivote", "1 = escribe"),
-    ("sel_banco", 1, "banco", "dirección y dato del banco", "0 = (k, piv) · 1 = (n, ±a(n,n))"),
-    ("sel_nn", 1, "banco", "MUX ±a(n,n)", "0 = qa · 1 = resultado (0 − qa)"),
+    ("sel_w", 1, "ram", "dirección de escritura", "0 = a(i,j) · 1 = a(k,j)"),
+    ("sel_data", 2, "ram", "dato que se escribe",
+     "00 = a (ROM) · 01 = qb · 10 = tmp · 11 = ±cociente (signo sq)"),
+    ("we_banco", 1, "banco", "escribe banco(k) ← qb", "1 = escribe"),
 ]
 BITS_PC_P = sum(c[1] for c in CAMPOS_P)
 
-# Campos que alimentan las senales de estado: deben ser iguales en todas las
-# filas de un estado (si no, habria un lazo combinacional UC -> CD -> UC).
-CAMPOS_COMB_P = ["sel_fra", "sel_cra", "sel_frb", "sel_sra", "sel_srb", "op"]
-
+# Campos que alimentan las senales de estado (no hay: las direcciones de lectura
+# de las RAM son fijas y el resto de senales sale de registros).
+CAMPOS_COMB_P = []
 
 # Registros del CD: (nombre, bits, carga, selector o None, fuente fija, uso)
 REGISTROS_P = [
@@ -117,20 +102,19 @@ REGISTROS_P = [
     ("i", 3, "ld_i", "sel_i", None, "Fila"),
     ("j", 3, "ld_j", "sel_j", None, "Columna"),
     ("k", 3, "ld_k", "sel_k", None, "Paso de Bareiss"),
-    ("piv", 32, "ld_piv", None, "qa", "Pivote actual a(k,k)"),
-    ("p", 32, "ld_p", "sel_p", None, "Pivote anterior (solo se usa su signo)"),
-    ("|p| (pabs)", 32, "ld_pabs", "sel_pabs", None, "Divisor de la división"),
+    ("piv", 32, "ld_piv", None, "qb", "Pivote actual a(k,k)"),
+    ("p", 32, "ld_p", "sel_p", None, "Pivote anterior (divisor)"),
+    ("aik", 32, "ld_aik", None, "qa", "a(i,k) de la fila i"),
+    ("tmp", 32, "ld_tmp", None, "qa", "Intercambio de filas"),
     ("signo", 1, "ld_signo", "sel_signo", None, "Paridad de intercambios de filas"),
-    ("tmp", 32, "ld_tmp", None, "qb", "Intercambio de filas"),
+    ("det (deter)", 32, "ld_det", "sel_det", None, "Determinante (salida det)"),
     ("mul_a", 25, "ld_ma", "sel_ma", None, "Entrada A del multiplicador"),
     ("mul_b", 25, "ld_mb", "sel_mb", None, "Entrada B del multiplicador"),
-    ("t1", 50, "ld_t1", None, "producto", "a(k,k)·a(i,j)"),
-    ("t2", 50, "ld_t2", None, "producto", "a(i,k)·a(k,j)"),
-    ("t3", 50, "ld_t3", None, "resultado", "t1 − t2"),
-    ("residuo", 50, "ld_res", "sel_res", None, "División: residuo"),
+    ("sr_a", 50, "ld_sra", "sel_sra", None, "Entrada A del sumador/restador: t1 y luego el residuo"),
+    ("sr_b", 50, "ld_srb", "sel_srb", None, "Entrada B del sumador/restador: t2, p y cociente"),
+    ("op", 1, "ld_op", "sel_op", None, "Operación: 0 suma, 1 resta"),
     ("cociente", 32, "ld_coc", "sel_coc", None, "División: cociente (contador)"),
-    ("sq", 1, "ld_sq", None, "t3(49) xor p(31)", "Signo del cociente"),
-    ("det", 32, "ld_det", "sel_det", None, "Determinante (salida det)"),
+    ("sq", 1, "ld_sq", None, "resultado(49) ⊕ p(31)", "Signo del cociente"),
 ]
 
 REGISTROS_V = [
@@ -142,7 +126,6 @@ REGISTROS_V = [
     ("disp, disp_neg", 41, "ld_disp", None, "dec, neg", "Valor que muestra el display"),
 ]
 
-
 def F(cond, sig, **pc):
     return (cond, sig, pc)
 
@@ -150,55 +133,42 @@ def F(cond, sig, **pc):
 # Una fila por camino del ASM: (estado, condiciones, siguiente, PC). Los campos
 # que no aparecen valen 0 si son cargas/escrituras y X si son selectores.
 FILAS_P = {
-    "s0": [F({"inicio": 0}, "s0", ld_dira=1, sel_dira="00"),
-           F({"inicio": 1}, "s1", ld_dira=1, sel_dira="00")],
-    "s1": [F({}, "s2", ld_n=1, ld_dira=1, sel_dira="01", ld_i=1, sel_i="00", ld_j=1, sel_j="00")],
-    "s2": [F({"i_n": 0}, "s2", we=1, sel_fw="0", sel_data="000", ld_dira=1, sel_dira="10",
-             ld_i=1, sel_i="01"),
-           F({"i_n": 1, "j_n": 0}, "s2", we=1, sel_fw="0", sel_data="000", ld_dira=1, sel_dira="10",
+    "s0": [F({"inicio": 0}, "s0"),
+           F({"inicio": 1}, "s1", ld_n=1, ld_dira=1, sel_dira="0", ld_i=1, sel_i="00", ld_j=1, sel_j="00")],
+    "s1": [F({"i_n": 0}, "s1", we=1, sel_w="0", sel_data="00", ld_dira=1, sel_dira="1", ld_i=1, sel_i="01"),
+           F({"i_n": 1, "j_n": 0}, "s1", we=1, sel_w="0", sel_data="00", ld_dira=1, sel_dira="1",
              ld_i=1, sel_i="00", ld_j=1, sel_j="01"),
-           F({"i_n": 1, "j_n": 1}, "s3", we=1, sel_fw="0", sel_data="000", ld_dira=1, sel_dira="10",
-             ld_i=1, sel_i="00")],
-    "s3": [F({}, "s4", ld_k=1, sel_k="0", ld_p=1, sel_p="0", ld_pabs=1, sel_pabs="00",
-             ld_signo=1, sel_signo="0", ld_det=1, sel_det="0", clr_banco=1)],
-    "s4": [F({"z_a": 1}, "s5", ld_piv=1, sel_fra="01", sel_cra="01", ld_i=1, sel_i="10"),
-           F({"z_a": 0}, "s8", ld_piv=1, sel_fra="01", sel_cra="01")],
-    "s5": [F({"z_a": 0}, "s6", sel_fra="00", sel_cra="01", ld_j=1, sel_j="10", ld_signo=1, sel_signo="1"),
-           F({"z_a": 1, "i_n": 1}, "s18", sel_fra="00", sel_cra="01", ld_det=1, sel_det="0"),
-           F({"z_a": 1, "i_n": 0}, "s5", sel_fra="00", sel_cra="01", ld_i=1, sel_i="01")],
-    "s6": [F({}, "s7", we=1, sel_fw="0", sel_data="001", sel_fra="01", sel_cra="00", sel_frb="0",
-             ld_tmp=1)],
-    "s7": [F({"j_n": 1}, "s4", we=1, sel_fw="1", sel_data="010"),
-           F({"j_n": 0}, "s6", we=1, sel_fw="1", sel_data="010", ld_j=1, sel_j="01")],
-    "s8": [F({}, "s9", we_banco=1, sel_banco="0", ld_i=1, sel_i="10", ld_j=1, sel_j="11")],
-    "s9": [F({}, "s10", ld_ma=1, sel_ma="0", ld_mb=1, sel_mb="0", sel_fra="00", sel_cra="00")],
-    "s10": [F({}, "s11", ld_t1=1, ld_ma=1, sel_ma="1", ld_mb=1, sel_mb="1", sel_fra="00", sel_cra="01",
-              sel_frb="1")],
-    "s11": [F({}, "s12", ld_t2=1)],
-    "s12": [F({}, "s13", ld_t3=1, sel_sra="01", sel_srb="001", op="1")],
-    "s13": [F({"t3_neg": 1}, "s14", ld_coc=1, sel_coc="0", ld_sq=1, sel_sra="00", sel_srb="010", op="1",
-              ld_res=1, sel_res="1"),
-            F({"t3_neg": 0}, "s14", ld_coc=1, sel_coc="0", ld_sq=1, sel_sra="00", sel_srb="010", op="1",
-              ld_res=1, sel_res="0")],
-    "s14": [F({"res_neg": 0}, "s14", sel_sra="10", sel_srb="011", op="1", ld_res=1, sel_res="1",
-              ld_coc=1, sel_coc="1"),
-            F({"res_neg": 1}, "s15", sel_sra="10", sel_srb="011", op="1")],
-    "s15": [F({"sq": q, "j_n": 0}, "s9", we=1, sel_fw="0", sel_data=d, sel_sra="00", sel_srb="100",
-              op="1", ld_j=1, sel_j="01") for q, d in ((1, "100"), (0, "011"))]
-         + [F({"sq": q, "j_n": 1, "i_n": 0}, "s9", we=1, sel_fw="0", sel_data=d, sel_sra="00",
-              sel_srb="100", op="1", ld_i=1, sel_i="01", ld_j=1, sel_j="11") for q, d in ((1, "100"), (0, "011"))]
-         + [F({"sq": q, "j_n": 1, "i_n": 1}, "s16", we=1, sel_fw="0", sel_data=d, sel_sra="00",
-              sel_srb="100", op="1") for q, d in ((1, "100"), (0, "011"))],
-    "s16": [F({"piv_neg": pn, "k1_n": kn}, "s17" if kn else "s4", ld_p=1, sel_p="1", ld_k=1, sel_k="1",
-              ld_pabs=1, sel_pabs="10" if pn else "01", sel_sra="00", sel_srb="101", op="1")
-            for pn in (1, 0) for kn in (0, 1)],
-    "s17": [F({"signo": sg}, "s18", sel_fra="10", sel_cra="10", sel_sra="00", sel_srb="110", op="1",
-              ld_det=1, sel_det="1", we_banco=1, sel_banco="1", sel_nn="1" if sg else "0")
-            for sg in (1, 0)],
-    "s18": [F({"inicio": 1}, "s1", ld_dira=1, sel_dira="00"),
-            F({"inicio": 0}, "s18", ld_dira=1, sel_dira="00")],
+           F({"i_n": 1, "j_n": 1}, "s2", we=1, sel_w="0", sel_data="00", ld_dira=1, sel_dira="1",
+             ld_k=1, sel_k="0", ld_j=1, sel_j="00", ld_p=1, sel_p="0", ld_signo=1, sel_signo="0")],
+    "s2": [F({"z_b": 1}, "s3", ld_piv=1, ld_i=1, sel_i="10"),
+           F({"z_b": 0}, "s6", ld_piv=1, ld_i=1, sel_i="10", we_banco=1)],
+    "s3": [F({"z_a": 0}, "s4", ld_signo=1, sel_signo="1"),
+           F({"z_a": 1, "i_n": 1}, "s13", ld_det=1, sel_det="00"),
+           F({"z_a": 1, "i_n": 0}, "s3", ld_i=1, sel_i="01")],
+    "s4": [F({}, "s5", we=1, sel_w="0", sel_data="01", ld_tmp=1)],
+    "s5": [F({"j_n": 1}, "s2", we=1, sel_w="1", sel_data="10", ld_j=1, sel_j="10"),
+           F({"j_n": 0}, "s4", we=1, sel_w="1", sel_data="10", ld_j=1, sel_j="01")],
+    "s6": [F({}, "s7", ld_aik=1, ld_j=1, sel_j="11")],
+    "s7": [F({}, "s8", ld_ma=1, sel_ma="0", ld_mb=1, sel_mb="0")],
+    "s8": [F({}, "s9", ld_sra=1, sel_sra="0", ld_ma=1, sel_ma="1", ld_mb=1, sel_mb="1")],
+    "s9": [F({}, "s10", ld_srb=1, sel_srb="00", ld_op=1, sel_op="0")],
+    "s10": [F({}, "s11", ld_sra=1, sel_sra="1", ld_srb=1, sel_srb="01", ld_sq=1, ld_op=1, sel_op="1",
+              ld_coc=1, sel_coc="0")],
+    "s11": [F({"z_res": 0}, "s11", ld_sra=1, sel_sra="1", ld_coc=1, sel_coc="1"),
+            F({"z_res": 1}, "s12", ld_srb=1, sel_srb="10", ld_op=1, sel_op="0")],
+    "s12": [F({"j_n": 0}, "s7", we=1, sel_w="0", sel_data="11", ld_j=1, sel_j="01"),
+            F({"j_n": 1, "i_n": 0}, "s6", we=1, sel_w="0", sel_data="11", ld_i=1, sel_i="01",
+              ld_j=1, sel_j="10"),
+            F({"j_n": 1, "i_n": 1, "k1_n": 0}, "s2", we=1, sel_w="0", sel_data="11", ld_p=1, sel_p="1",
+              ld_k=1, sel_k="1", ld_j=1, sel_j="11"),
+            F({"j_n": 1, "i_n": 1, "k1_n": 1, "sqs": 1}, "s13", we=1, sel_w="0", sel_data="11",
+              ld_det=1, sel_det="10"),
+            F({"j_n": 1, "i_n": 1, "k1_n": 1, "sqs": 0}, "s13", we=1, sel_w="0", sel_data="11",
+              ld_det=1, sel_det="01")],
+    "s13": [F({"inicio": 1}, "s1", ld_dira=1, sel_dira="0", ld_i=1, sel_i="00", ld_j=1, sel_j="00"),
+            F({"inicio": 0}, "s13")],
 }
-FINAL_P = {"s18"}
+FINAL_P = {"s13"}
 
 
 # ===========================================================================
@@ -359,7 +329,8 @@ def campo(pcc, nombre):
 # Modelo ciclo a ciclo del CD del procesador manejado por la tabla de la UC
 # ===========================================================================
 def dir_ram(f, c):
-    return 5 * (f - 1) + (c - 1) if 1 <= f <= 5 and 1 <= c <= 5 else 31
+    """Dirección de a(f,c): f & c(1..0) en las columnas 1 a 4 y "11" & f en la 5."""
+    return (24 + f) if c == 5 else ((f << 2) | (c & 3))
 
 
 class NoEscrito(Exception):
@@ -367,102 +338,81 @@ class NoEscrito(Exception):
 
 
 def simular_procesador(rom, max_ciclos=50_000_000):
-    """rom: lista de 32 palabras de 6 bits. Devuelve (det, banco, ciclos), donde
+    """rom: lista de 32 palabras de 6 bits. Devuelve (det, pivotes, ciclos), donde
     ciclos cuenta desde el flanco en que s0 ve inicio = 1 hasta el flanco en
-    que la UC entra a s18."""
-    r = dict(dira=0, n=0, i=0, j=0, k=0, piv=0, p=0, pabs=0, signo=0, tmp=0, ma=0, mb=0,
-             t1=0, t2=0, t3=0, res=0, coc=0, sq=0, det=0)
-    ram_a, ram_b = [None] * 32, [None] * 32
-    banco = [0] * 8
+    que la UC entra a s13. El CD solo hace lo que dice la palabra de control."""
+    r = dict(dira=0, n=0, i=0, j=0, k=0, piv=0, p=0, aik=0, tmp=0, signo=0, det=0, ma=0, mb=0,
+             sra=0, srb=0, op=1, coc=0, sq=0)
+    ram = [None] * 32                       # RAM A y RAM B tienen el mismo contenido
+    banco = [0] * 5                         # b1..b4
     st = "s0"
-    ciclos = 0
+    filas = FILAS_P
     for ciclo in range(max_ciclos):
         inicio = 1 if ciclo == 0 else 0
-        base = pc_completa(FILAS_P[st][0][2], CAMPOS_P)       # campos combinacionales
-        fila = {"00": r["i"], "01": r["k"], "10": r["n"]}
-        fra = fila.get(base["sel_fra"], r["i"])
-        cra = {"00": r["j"], "01": r["k"], "10": r["n"]}.get(base["sel_cra"], r["j"])
-        frb = r["k"] if base["sel_frb"] == "1" else r["i"]
-        qa, qb = ram_a[dir_ram(fra, cra)], ram_b[dir_ram(frb, r["j"])]
+        qa, qb = ram[dir_ram(r["i"], r["j"])], ram[dir_ram(r["k"], r["j"])]
         a6 = rom[r["dira"]]
-        a32 = sext(a6, 6) & M32
         producto = (sext(r["ma"], 25) * sext(r["mb"], 25)) & M50
+        if r["op"]:
+            resultado = (r["sra"] - r["srb"]) & M50
+        else:
+            resultado = (r["sra"] + r["srb"]) & M50
+        senal = dict(inicio=inicio, z_b=None if qb is None else int(qb == 0),
+                     z_a=None if qa is None else int(qa == 0),
+                     i_n=int(r["i"] == r["n"]), j_n=int(r["j"] == r["n"]),
+                     k1_n=int(((r["k"] + 1) & M3) == r["n"]), z_res=int(r["sra"] == 0),
+                     sqs=r["sq"] ^ r["signo"])
+        for k_ in {k for c, _, _ in filas[st] for k in c}:
+            if senal[k_] is None:
+                raise NoEscrito(f"{st}: la decisión {k_} usa una posición de la RAM sin escribir")
+        sig, pc = fila_de(filas, st, senal)
+        pcc = pc_completa(pc, CAMPOS_P)
 
         def leer(x):
             if x is None:
                 raise NoEscrito(f"{st}: se lee una posición de la RAM que no se ha escrito")
             return x
 
-        sra = {"00": 0, "01": r["t1"], "10": r["res"]}.get(base["sel_sra"], 0)
-        srb_fuentes = {"000": lambda: 0, "001": lambda: r["t2"], "010": lambda: r["t3"],
-                       "011": lambda: r["pabs"], "100": lambda: r["coc"],
-                       "101": lambda: sext(r["piv"], 32) & M50, "110": lambda: sext(leer(qa), 32) & M50}
-        srb = srb_fuentes.get(base["sel_srb"], lambda: 0)()
-        op = 1 if base["op"] == "1" else 0
-        resultado = (sra + (srb ^ (M50 if op else 0)) + op) & M50
-
-        senal = dict(inicio=inicio, z_a=int(qa == 0) if qa is not None else None,
-                     i_n=int(r["i"] == r["n"]), j_n=int(r["j"] == r["n"]),
-                     k1_n=int(((r["k"] + 1) & M3) == r["n"]), t3_neg=r["t3"] >> 49,
-                     res_neg=resultado >> 49, sq=r["sq"], piv_neg=r["piv"] >> 31, signo=r["signo"])
-        for k_ in {k for c, _, _ in FILAS_P[st] for k in c}:
-            if senal[k_] is None:
-                raise NoEscrito(f"{st}: la decisión {k_} usa una posición de la RAM sin escribir")
-        sig, pc = fila_de(FILAS_P, st, senal)
-        pcc = pc_completa(pc, CAMPOS_P)
-        for k_ in pc:
-            if k_ in CAMPOS_COMB_P and pcc[k_] != base[k_]:
-                raise RuntimeError("campo combinacional distinto de la fila base")
-
-        nn = resultado & M32 if pcc["sel_nn"] == "1" else (leer(qa) if pcc["sel_nn"] == "0" else None)
         nuevo = dict(r)
 
         def carga(reg, ld, valor):
             if pcc[ld] == "1":
                 nuevo[reg] = valor()
 
-        carga("dira", "ld_dira", lambda: {"00": 0, "01": 1, "10": (r["dira"] + 1) & M5}[campo(pcc, "sel_dira")])
+        carga("dira", "ld_dira", lambda: {"0": 1, "1": (r["dira"] + 1) & M5}[campo(pcc, "sel_dira")])
         carga("n", "ld_n", lambda: a6 & M3)
         carga("i", "ld_i", lambda: {"00": 1, "01": (r["i"] + 1) & M3, "10": (r["k"] + 1) & M3}[campo(pcc, "sel_i")])
         carga("j", "ld_j", lambda: {"00": 1, "01": (r["j"] + 1) & M3, "10": r["k"],
                                     "11": (r["k"] + 1) & M3}[campo(pcc, "sel_j")])
         carga("k", "ld_k", lambda: {"0": 1, "1": (r["k"] + 1) & M3}[campo(pcc, "sel_k")])
-        carga("piv", "ld_piv", lambda: leer(qa))
+        carga("piv", "ld_piv", lambda: leer(qb))
         carga("p", "ld_p", lambda: {"0": 1, "1": r["piv"]}[campo(pcc, "sel_p")])
-        carga("pabs", "ld_pabs", lambda: {"00": 1, "01": r["piv"], "10": resultado & M32}[campo(pcc, "sel_pabs")])
+        carga("aik", "ld_aik", lambda: leer(qa))
+        carga("tmp", "ld_tmp", lambda: leer(qa))
         carga("signo", "ld_signo", lambda: {"0": 0, "1": r["signo"] ^ 1}[campo(pcc, "sel_signo")])
-        carga("tmp", "ld_tmp", lambda: leer(qb))
-        carga("ma", "ld_ma", lambda: {"0": r["piv"] & M25, "1": leer(qa) & M25}[campo(pcc, "sel_ma")])
+        carga("det", "ld_det", lambda: {"00": 0, "01": r["coc"], "10": resultado & M32}[campo(pcc, "sel_det")])
+        carga("ma", "ld_ma", lambda: {"0": r["piv"] & M25, "1": r["aik"] & M25}[campo(pcc, "sel_ma")])
         carga("mb", "ld_mb", lambda: {"0": leer(qa) & M25, "1": leer(qb) & M25}[campo(pcc, "sel_mb")])
-        carga("t1", "ld_t1", lambda: producto)
-        carga("t2", "ld_t2", lambda: producto)
-        carga("t3", "ld_t3", lambda: resultado)
-        carga("res", "ld_res", lambda: {"0": r["t3"], "1": resultado}[campo(pcc, "sel_res")])
+        carga("sra", "ld_sra", lambda: {"0": producto, "1": resultado}[campo(pcc, "sel_sra")])
+        carga("srb", "ld_srb", lambda: {"00": producto, "01": sext(r["p"], 32) & M50,
+                                        "10": sext(r["coc"], 32) & M50}[campo(pcc, "sel_srb")])
+        carga("op", "ld_op", lambda: {"0": 1, "1": 1 - ((resultado >> 49) ^ (r["p"] >> 31))}[campo(pcc, "sel_op")])
         carga("coc", "ld_coc", lambda: {"0": 0, "1": (r["coc"] + 1) & M32}[campo(pcc, "sel_coc")])
-        carga("sq", "ld_sq", lambda: (r["t3"] >> 49) ^ (r["p"] >> 31))
-        carga("det", "ld_det", lambda: {"0": 0, "1": nn}[campo(pcc, "sel_det")])
+        carga("sq", "ld_sq", lambda: (resultado >> 49) ^ (r["p"] >> 31))
 
         if pcc["we"] == "1":
-            fw = r["k"] if campo(pcc, "sel_fw") == "1" else r["i"]
-            dato = {"000": lambda: a32, "001": lambda: leer(qa), "010": lambda: r["tmp"],
-                    "011": lambda: r["coc"], "100": lambda: resultado & M32}[campo(pcc, "sel_data")]()
-            ram_a[dir_ram(fw, r["j"])] = dato
-            ram_b[dir_ram(fw, r["j"])] = dato
-        if pcc["clr_banco"] == "1":
-            banco = [0] * 8
-        elif pcc["we_banco"] == "1":
-            if campo(pcc, "sel_banco") == "1":
-                banco[r["n"]] = nn
-            else:
-                banco[r["k"]] = r["piv"]
+            fila = r["k"] if campo(pcc, "sel_w") == "1" else r["i"]
+            dato = {"00": lambda: sext(a6, 6) & M32, "01": lambda: leer(qb), "10": lambda: r["tmp"],
+                    "11": lambda: (resultado & M32) if r["sq"] else r["coc"]}[campo(pcc, "sel_data")]()
+            ram[dir_ram(fila, r["j"])] = dato
+        if pcc["we_banco"] == "1":
+            banco[r["k"]] = leer(qb)
         r = nuevo
         st = sig
-        if st == "s18":
-            ciclos = ciclo + 1
-            break
-    else:
-        raise RuntimeError("no llegó a s18")
-    return sext(r["det"], 32), [sext(banco[k], 32) for k in range(1, r["n"] + 1)], ciclos
+        if st == "s13":
+            n = r["n"]
+            det = sext(r["det"], 32)
+            return det, [sext(banco[k], 32) for k in range(1, n)] + [det], ciclo + 1
+    raise RuntimeError("no llegó a s13")
 
 
 # ===========================================================================

@@ -17,7 +17,7 @@
 -- display conserva el ultimo valor.
 --
 -- Unidades funcionales propias (no se comparten con el procesador):
---   restador 0 - valor (valor absoluto), sumador +3, comparador > 4.
+--   restador 0 - val (valor absoluto), sumador +3 (dig_mas3), comparador > 4.
 -- Display: AN7 = signo ('-' o apagado), AN6..AN0 = 7 digitos decimales.
 -- desborde = 1 si el valor tiene mas de 7 digitos.
 -- Solo std_logic y std_logic_vector, salvo el tipo de los estados del ASM
@@ -54,10 +54,6 @@ architecture Behavioral of visualizador is
 type estados_asm is (x0,x1,x2,x3,x4,x5);
 signal xs : estados_asm;
 
-constant CERO12 : STD_LOGIC_VECTOR (11 downto 0) := x"000";
-constant CERO32 : STD_LOGIC_VECTOR (31 downto 0) := x"00000000";
-constant CERO40 : STD_LOGIC_VECTOR (39 downto 0) := x"0000000000";
-
 ------------------------------------------------------------------------------
 -- Registros del ASM XS3
 ------------------------------------------------------------------------------
@@ -73,11 +69,8 @@ signal disp_neg : STD_LOGIC;
 -- Senales combinacionales
 ------------------------------------------------------------------------------
 signal val       : STD_LOGIC_VECTOR (31 downto 0); -- valor elegido con dir_p
-signal menos_val : STD_LOGIC_VECTOR (31 downto 0); -- 0 - val
 signal dig       : STD_LOGIC_VECTOR (3 downto 0);  -- digito d del registro decimal
-signal dig_mas3  : STD_LOGIC_VECTOR (3 downto 0);
-signal cont_mas1 : STD_LOGIC_VECTOR (4 downto 0);
-signal d_mas1    : STD_LOGIC_VECTOR (3 downto 0);
+signal dig_mas3  : STD_LOGIC_VECTOR (3 downto 0);  -- digito d + 3
 
 ------------------------------------------------------------------------------
 -- Display
@@ -91,11 +84,8 @@ begin
 ------------------------------------------------------------------------------
 -- Camino de datos del XS3
 ------------------------------------------------------------------------------
-val       <= det when dir_p = "000" else pivote;
-menos_val <= CERO32 - val;                          -- restador
-dig_mas3  <= dig + "0011";                          -- sumador +3
-cont_mas1 <= cont + '1';
-d_mas1    <= d + '1';
+val      <= det when dir_p = "000" else pivote;
+dig_mas3 <= dig + 3;                                -- sumador +3
 
 with d select
     dig <= dec(3 downto 0)   when "0000",
@@ -118,12 +108,12 @@ begin
 
 if rst = '1' then
     xs       <= x0;
-    bin      <= CERO32;
-    dec      <= CERO40;
+    bin      <= (others => '0');
+    dec      <= (others => '0');
     cont     <= "00000";
     d        <= "0000";
     neg      <= '0';
-    disp     <= CERO40;
+    disp     <= (others => '0');
     disp_neg <= '0';
 
 elsif clk'event and clk = '1' then
@@ -134,7 +124,7 @@ elsif clk'event and clk = '1' then
             if final = '1' then
                 neg <= val(31);
                 if val(31) = '1' then
-                    bin <= menos_val;
+                    bin <= 0 - val;          -- valor absoluto
                 else
                     bin <= val;
                 end if;
@@ -144,7 +134,7 @@ elsif clk'event and clk = '1' then
             end if;
 
         when x1 =>                              -- PASO 1: decimal = 0
-            dec  <= CERO40;
+            dec  <= (others => '0');
             cont <= "00000";
             xs   <= x2;
 
@@ -176,14 +166,14 @@ elsif clk'event and clk = '1' then
             if d = "1001" then
                 xs <= x4;
             else
-                d  <= d_mas1;
+                d  <= d + 1;
                 xs <= x3;
             end if;
 
         when x4 =>                              -- PASO 4: corrimiento a la izquierda
             dec  <= dec(38 downto 0) & '0';
             bin  <= bin(30 downto 0) & '0';
-            cont <= cont_mas1;
+            cont <= cont + 1;
             xs   <= x2;
 
         when x5 =>                              -- resultado al display
@@ -208,7 +198,7 @@ if rst = '1' then
     dsel <= "000";
 elsif clk'event and clk = '1' then
     if tick = '1' then
-        dsel <= dsel + '1';
+        dsel <= dsel + 1;
     end if;
 end if;
 end process;
@@ -250,6 +240,6 @@ with car select                                 --  gfedcba
            "1111111" when others;               --  apagado
 
 dp       <= '1';
-desborde <= '0' when disp(39 downto 28) = CERO12 else '1';
+desborde <= '0' when disp(39 downto 28) = 0 else '1';
 
 end Behavioral;

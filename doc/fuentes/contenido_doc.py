@@ -24,7 +24,7 @@ E["h2_anexo"] = ParagraphStyle("h2_anexo", parent=E["h2"])   # no aparece en el 
 ARCHIVOS_VHDL = ["det_bareiss.vhd", "procesador_bareiss.vhd", "visualizador.vhd",
                  "antirrebote.vhd", "divisor_frecuencia.vhd"]
 
-ESTADOS_B = [f"s{i}" for i in range(19)]
+ESTADOS_B = [f"s{i}" for i in range(14)]
 
 
 def resultados_sim():
@@ -98,8 +98,9 @@ def contenido():
     V(viñetas([
         "[b]antirrebote.vhd[/b]: un solo antirrebote, para el botón de inicio.",
         "[b]divisor_frecuencia.vhd[/b]: pulso de 1 ms (antirrebote y barrido del display) y onda de 1 s.",
-        "[b]procesador_bareiss.vhd[/b]: el ASM de Bareiss con sus bloques: ROM con la matriz, dos RAM del modelo del "
-        "profesor, banco de pivotes y las [b]dos únicas unidades funcionales[/b], un multiplicador y un "
+        "[b]procesador_bareiss.vhd[/b]: el ASM de Bareiss en alto nivel, como los ejemplos ASM_Sumax y "
+        "ASM_contador_unos: un solo process con [c]case st is[/c] y 14 estados. Usa la ROM con la matriz, dos RAM del "
+        "modelo del profesor, un banco de pivotes y las [b]dos únicas unidades funcionales[/b]: un multiplicador y un "
         "sumador/restador. No hay ALU.",
         "[b]visualizador.vhd[/b]: en un mismo archivo, el ASM del algoritmo XS3 y el display de 8 dígitos. Es un ASM "
         "aparte que trabaja en paralelo con el de Bareiss y tiene sus propias unidades (no comparte las del procesador).",
@@ -126,36 +127,38 @@ def contenido():
          "No hay [c]variable[/c], [c]function[/c] ni lazos [c]for[/c]/[c]while[/c]. Las repeticiones las hace el ASM, "
          "un paso por ciclo de reloj, con contadores."],
         ["Unidades funcionales del procesador",
-         "Solo [c]multiplicador[/c] (25 × 25 → 50) y [c]sumador_restador[/c] (50 bits). El visualizador tiene sus "
-         "propias unidades (restador 0 − valor, sumador +3, comparador > 4)."],
-        ["Sintetizable y con esquemático RTL claro",
-         "Entidades estructurales ([c]procesador_bareiss[/c], [c]det_bareiss[/c]) que solo conectan bloques. La "
-         "síntesis genérica con GHDL termina sin errores ni latches, con un multiplicador y un sumador de 50 bits "
-         "en el procesador."],
+         "Una línea para cada una: [c]producto <= mul_a * mul_b;[/c] (25 × 25 → 50) y [c]resultado <= sr_a + sr_b "
+         "when op = '0' else sr_a - sr_b;[/c] (50 bits). Los estados cargan sus entradas. El visualizador tiene sus "
+         "propias unidades (restador 0 − val, sumador +3, comparador > 4)."],
+        ["Alto nivel, como los ejemplos",
+         "Cada estado del process hace las operaciones de su caja ASM (por ejemplo [c]cociente <= cociente + 1;[/c]). "
+         "No hay constantes con nombre: se usan literales como [c]\"001\"[/c] y [c](others => '0')[/c]. La síntesis "
+         "genérica con GHDL termina sin errores ni latches."],
         ["Reglas del ASM", "Verificadas con un programa sobre los diagramas (sección 6.2)."],
         ["Solo para simulación", "Los testbench usan variables, integer, real, string y wait; no se sintetizan."],
     ], [1.9, 5.0]))
     A(P("Requisitos del enunciado y de la clase", "h2"))
     A(tabla([
         ["Requisito", "Cómo lo cumple el diseño"],
-        ["Señal de inicio y señal de final", "Entradas y salidas del procesador; final = 1 en el estado s18."],
+        ["Señal de inicio y señal de final", "Entradas y salidas del procesador; final = 1 en el estado s13."],
         ["Matriz en ROM: 00h = n, luego los a(i,j) como en la Figura 1 del taller",
          "Entidad [c]rom_matriz[/c] dentro de procesador_bareiss.vhd: dirección dira de 5 bits y dato a de 6 bits "
          "en complemento a 2. Elementos por columnas: a11, a21, …, an1, a12, …"],
         ["La ROM hace parte de la arquitectura", "Está dentro del procesador; no entra por puertos."],
         ["Multiplicador, sumador/restador y división por restas sucesivas",
-         "Entidades [c]multiplicador[/c] y [c]sumador_restador[/c]; la división son los estados s13 y s14."],
+         "Señales producto y resultado (una unidad de cada una); la división son los estados s10 y s11."],
         ["Memoria RAM del curso", "Dos instancias de [c]RAM_memory[/c] (modelo del profesor, 32 × 32)."],
         ["Pivotes en un banco de registros, visibles con los switches",
-         "Entidad [c]banco_pivotes[/c]: dir_p = k (SW2..SW0) elige el pivote; el último (k = n) es el determinante."],
+         "Registros b1 a b4: dir_p = k (SW2..SW0) elige el pivote; con dir_p = n sale el determinante, que es el "
+         "último pivote."],
         ["Determinante en decimal en los displays", "El visualizador convierte con el XS3 y muestra signo y 7 dígitos."],
         ["ASM del XS3 aparte, en paralelo", "ASM de 6 estados en visualizador.vhd, un estado por paso del documento XS3."],
         ["Un solo antirrebote", "Entidad [c]antirrebote[/c], solo para el botón de inicio."],
     ], [2.2, 4.7]))
     A(KeepTogether([P("Archivos del repositorio", "h2"), tabla([
         ["Archivo", "Contenido"],
-        ["src/procesador_bareiss.vhd", "Procesador: ROM, RAM_memory, dir_ram, multiplicador, sumador_restador, "
-                                       "banco_pivotes, asm_bareiss y la entidad estructural procesador_bareiss."],
+        ["src/procesador_bareiss.vhd", "rom_matriz (la matriz), RAM_memory (modelo del profesor) y "
+                                       "procesador_bareiss (el ASM de Bareiss, un solo process)."],
         ["src/visualizador.vhd", "ASM XS3 y display de 8 dígitos."],
         ["src/antirrebote.vhd", "Antirrebote del botón de inicio."],
         ["src/divisor_frecuencia.vhd", "Pulso de 1 ms y onda de 1 s (reloj de 100 MHz)."],
@@ -189,8 +192,8 @@ def contenido():
              "    | 3 2 5 |      k = 2, p = 2:  a33 = (7·1 − 1·1)/2 = 3   →   det = 3\n"
              "Banco de pivotes: pivote 1 = 2, pivote 2 = 7, pivote 3 = 3 = det"))
     A(P("Pivote cero", "h2"))
-    A(P("Si a(k,k) = 0, el ASM busca la primera fila i > k con a(i,k) ≠ 0 (estado s5), intercambia las filas k e i en "
-        "las columnas k a n (s6 y s7) e invierte el bit [c]signo[/c]. Al final, det = −a(n,n) si hubo un número impar "
+    A(P("Si a(k,k) = 0, el ASM busca la primera fila i > k con a(i,k) ≠ 0 (estado s3), intercambia las filas k e i en "
+        "las columnas k a n (s4 y s5) e invierte el bit [c]signo[/c]. Al final, det = −a(n,n) si hubo un número impar "
         "de intercambios; ese valor con su signo es el que se guarda como último pivote, para que el pivote n siempre "
         "sea igual al determinante. Si no hay fila con a(i,k) ≠ 0, det = 0."))
 
@@ -198,30 +201,32 @@ def contenido():
     A(PageBreak())
     A(P("3. Pseudoalgoritmo con el hardware disponible", "h1"))
     A(P("Cada línea indica el estado del ASM que la ejecuta. Las operaciones de un mismo estado ocurren en el mismo "
-        "ciclo de reloj. RAM(f,c) es el elemento a(f,c); RAM_A y RAM_B son las dos copias (sección 9.4)."))
+        "ciclo de reloj. RAM(f,c) es el elemento a(f,c). Las dos RAM tienen la misma matriz: la RAM A lee a(i,j) y la RAM B lee a(k,j) (sección 9.4)."))
     A(P("Procesador de Bareiss", "h2"))
     A(codigo(
-        "s0 :  final = 0;  esperar inicio = 1\n"
-        "s1 :  n = ROM(00h);  dira = 1;  i = 1;  j = 1\n"
-        "s2 :  para j = 1..n, i = 1..n:  RAM(i,j) = ROM(dira);  dira = dira + 1     (por columnas)\n"
-        "s3 :  k = 1;  p = 1;  |p| = 1;  signo = 0;  det = 0;  banco = 0\n"
+        "s0 :  final = 0;  esperar inicio = 1;  n = ROM(00h);  dira = 1;  i = 1;  j = 1\n"
+        "s1 :  para j = 1..n, i = 1..n:  RAM(i,j) = ROM(dira);  dira = dira + 1     (por columnas)\n"
+        "      al terminar:  k = 1;  j = 1;  p = 1;  signo = 0\n"
         "mientras k <= n-1:\n"
-        "  s4 :  piv = RAM_A(k,k)\n"
+        "  s2 :  piv = a(k,k)  (RAM B con j = k);  i = k + 1\n"
         "        si piv = 0:\n"
-        "  s5 :     buscar i = k+1..n con RAM_A(i,k) /= 0;  si no existe: det = 0, ir a s18\n"
-        "  s6-s7:   para j = k..n:  RAM(i,j) = RAM_A(k,j);  tmp = RAM_B(i,j);  RAM(k,j) = tmp\n"
-        "           signo = not signo;  volver a s4\n"
-        "  s8 :  banco(k) = piv\n"
-        "        para i = k+1..n, j = k+1..n:\n"
-        "  s9-s11:   t1 = piv · RAM_A(i,j);   t2 = RAM_A(i,k) · RAM_B(k,j)      (multiplicador)\n"
-        "  s12:      t3 = t1 - t2                                             (sumador/restador)\n"
-        "  s13:      residuo = |t3|;  cociente = 0;  sq = signo(t3) xor signo(p)\n"
-        "  s14:      mientras residuo - |p| >= 0:                             (sumador/restador)\n"
-        "               residuo = residuo - |p|;  cociente = cociente + 1\n"
-        "  s15:      RAM(i,j) = +cociente o -cociente (según sq)\n"
-        "  s16:  p = piv;  |p| = |piv|;  k = k + 1\n"
-        "s17:  det = RAM_A(n,n) o -RAM_A(n,n) (según signo);  banco(n) = det\n"
-        "s18:  final = 1;  si inicio = 1 ir a s1"))
+        "  s3 :     buscar i = k+1..n con a(i,k) /= 0;  si no existe: det = 0, ir a s13\n"
+        "  s4-s5:   para j = k..n:  RAM(i,j) = a(k,j);  tmp = a(i,j);  RAM(k,j) = tmp\n"
+        "           signo = not signo;  volver a s2\n"
+        "        si no:  banco(k) = piv\n"
+        "        para i = k+1..n:\n"
+        "  s6 :     aik = a(i,k)\n"
+        "           para j = k+1..n:\n"
+        "  s7-s9:     t1 = piv · a(i,j);   t2 = aik · a(k,j)                (multiplicador)\n"
+        "  s10:       residuo = t1 - t2;  cociente = 0                     (sumador/restador)\n"
+        "             sq = signo(residuo) xor signo(p)\n"
+        "  s11:       mientras residuo /= 0:                               (sumador/restador)\n"
+        "                residuo = residuo - p (mismo signo) o residuo + p (signos distintos)\n"
+        "                cociente = cociente + 1\n"
+        "  s12:       RAM(i,j) = +cociente o -cociente (según sq)\n"
+        "        p = piv;  k = k + 1\n"
+        "  s12:  en el último paso:  det = +cociente o -cociente (según sq xor signo)\n"
+        "s13:  final = 1;  si inicio = 1 ir a s1"))
     A(P("Visualizador (ASM XS3, en paralelo)", "h2"))
     A(codigo(
         "repetir siempre:\n"
@@ -247,11 +252,11 @@ def contenido():
         ["Puerto", "Dir.", "Bits", "Función"],
         ["clk", "in", "1", "Reloj (100 MHz en la tarjeta)"],
         ["rst", "in", "1", "Reinicio asíncrono, activo en alto"],
-        ["inicio", "in", "1", "Comienza el cálculo (pulso de un ciclo; se lee en s0 y s18)"],
+        ["inicio", "in", "1", "Comienza el cálculo (pulso de un ciclo; se lee en s0 y s13)"],
         ["dir_p", "in", "3", "Dirección del banco de pivotes: 1 a n = pivote k (el n es el det); 0, 6 y 7 leen 0"],
         ["det", "out", "32", "Determinante en binario (complemento a 2)"],
         ["pivote", "out", "32", "Pivote dir_p en binario (complemento a 2)"],
-        ["final", "out", "1", "1 cuando det y los pivotes están listos (estado s18)"],
+        ["final", "out", "1", "1 cuando det y los pivotes están listos (estado s13)"],
     ], [1.0, 0.5, 0.5, 4.9]))
     A(P("4.2 Visualizador", "h2"))
     A(fig("caja_negra_vis", "Caja negra del visualizador (entidad visualizador).", max_ancho=3.4))
@@ -289,11 +294,11 @@ def contenido():
         ["Caja de salida condicional (rectángulo redondeado naranja)",
          "Operación que solo ocurre si se toma ese camino (tipo Mealy), como en el ejemplo «ASM Mealy» de clase."],
         ["Bloque ASM (recuadro punteado)", "Caja de estado más sus decisiones y salidas condicionales: dura un ciclo de reloj."],
-        ["Conector (círculo verde)", "Une hojas: A → s1, B → s4, C → s9, D → s14, E → s16, F → s18."],
+        ["Conector (círculo verde)", "Une hojas: A → s1, B → s2, C → s6, D → s7, E → s11, F → s13."],
         ["x ← expresión", "Carga de un registro; se hace efectiva en el flanco de subida al final del ciclo."],
         ["x = expresión", "Señal combinacional, por ejemplo final = 1."],
         ["RAM(f,c) ← dato", "Escritura en RAM A y RAM B (we = 1) en la posición fila f, columna c."],
-        ["RAM_A(f,c), RAM_B(f,c)", "Lectura de la RAM A o de la RAM B."],
+        ["qa, qb", "Lectura de las RAM: qa = a(i,j) (RAM A) y qb = a(k,j) (RAM B)."],
     ], [2.3, 4.6]))
     A(Spacer(1, 4))
     A(P("Todas las decisiones de un bloque usan los valores que tienen los registros al comenzar el ciclo."))
@@ -301,7 +306,7 @@ def contenido():
     # 6 -----------------------------------------------------------------------
     A(P("6. Diagrama ASM del procesador de Bareiss", "h1"))
     A(P("6.1 Vista general", "h2"))
-    A(fig("vista_general", "Diagrama de estados del ASM de Bareiss (19 estados).", max_alto=3.0))
+    A(fig("vista_general", "Diagrama de estados del ASM de Bareiss (14 estados).", max_alto=3.4))
     A(P("6.2 Verificación de las reglas del ASM", "h2"))
     A(P("Las reglas de clase son: (1) para cada estado presente y conjunto de decisiones solo se define un estado "
         "siguiente; (2) un camino de cajas de decisión debe llegar a un estado, sin ciclos. El programa "
@@ -314,56 +319,52 @@ def contenido():
         "Compara los estados siguientes de cada diagrama con las asignaciones [c]st <= …[/c] y [c]xs <= …[/c] del "
         "[c]case[/c] del VHDL, y la vista general con las hojas.",
     ]))
-    estado_verif = ("Resultado: sin errores en los 25 estados (19 de Bareiss y 6 del XS3)." if not errores_asm
+    estado_verif = ("Resultado: sin errores en los 20 estados (14 de Bareiss y 6 del XS3)." if not errores_asm
                     else "Resultado: ERRORES: " + "; ".join(errores_asm))
     A(P(f"[b]{estado_verif}[/b] La tabla de transiciones de la sección 6.3 la genera ese mismo programa."))
 
     hojas = [
-        ("asm_hoja1", "Hoja 1: espera y carga de la matriz (s0 a s3)",
-         "s2 recorre la ROM con el contador dira y los contadores i y j (por columnas). Cada dato se escribe en las dos "
-         "RAM a la vez."),
-        ("asm_hoja2", "Hoja 2: pivote, búsqueda de fila, intercambio y banco (s4 a s8)",
-         "El intercambio usa dos estados por columna: en s6 se leen a(k,j) de la RAM A y a(i,j) de la RAM B, se "
-         "escribe a(k,j) en la posición (i,j) y se guarda a(i,j) en tmp; en s7 se escribe tmp en la posición (k,j)."),
-        ("asm_hoja3", "Hoja 3: productos, resta e inicio de la división (s9 a s13)",
-         "Con un solo multiplicador, los dos productos se hacen en estados seguidos: en s10 se guarda t1 y se cargan "
-         "a(i,k) (RAM A) y a(k,j) (RAM B) en el multiplicador. El sumador/restador calcula t1 − t2 en s12 y 0 − t3 en "
-         "s13, para que el residuo empiece con |t3|."),
-        ("asm_hoja4", "Hoja 4: división y escritura de a(i,j) (s14 y s15)",
-         "s14 es el lazo de la división por restas sucesivas: en cada ciclo el sumador/restador calcula residuo − |p|; "
-         "si no es negativo se guarda y el cociente aumenta. En s15 se escribe el cociente con su signo y se avanza a "
-         "la siguiente posición (i,j)."),
-        ("asm_hoja5", "Hoja 5: siguiente paso, determinante y final (s16 a s18)",
-         "s17 guarda el determinante con el signo de los intercambios, también como último pivote del banco. En s18 "
-         "el ASM espera con final = 1; un nuevo inicio repite el cálculo desde s1."),
+        ("asm_hoja1", "Hoja 1: espera y carga de la matriz (s0 y s1)",
+         "Mientras espera, s0 tiene en la ROM la dirección 00h (n). Cuando llega inicio carga n y empieza la copia. "
+         "s1 recorre la ROM con el contador dira y los contadores i y j (por columnas); cada dato se escribe en las "
+         "dos RAM a la vez. Al terminar deja k = 1 y j = 1, para que la RAM B lea a(1,1)."),
+        ("asm_hoja2", "Hoja 2: pivote, búsqueda de fila e intercambio (s2 a s5)",
+         "La RAM A siempre lee a(i,j) y la RAM B a(k,j). Con j = k, s2 lee el pivote a(k,k) en la RAM B y s3 busca "
+         "a(i,k) ≠ 0 en la RAM A. El intercambio usa dos estados por columna: s4 escribe a(k,j) en la posición (i,j) "
+         "y guarda a(i,j) en tmp; s5 escribe tmp en la posición (k,j)."),
+        ("asm_hoja3", "Hoja 3: productos y resta (s6 a s10)",
+         "s6 guarda a(i,k) en aik al empezar cada fila. Con un solo multiplicador, los dos productos se hacen en "
+         "estados seguidos: s7 carga piv y a(i,j), s8 guarda t1 en sr_a y carga aik y a(k,j), s9 guarda t2 en sr_b. "
+         "En s10 el sumador/restador da t1 − t2, que pasa a ser el residuo."),
+        ("asm_hoja4", "Hoja 4: división, escritura de a(i,j) y final (s11 a s13)",
+         "s11 es el lazo de la división: en cada ciclo el residuo se acerca a 0 restando p (si tienen el mismo signo) "
+         "o sumándolo (si no), y el cociente aumenta. Cuando el residuo llega a 0, s12 escribe el cociente con su "
+         "signo y avanza a la siguiente posición; en el último paso guarda el determinante. En s13 el ASM espera con "
+         "final = 1."),
     ]
     for titulo_fig, titulo, texto in hojas:
         if titulo_fig != "asm_hoja1":
             A(PageBreak())
         A(P(titulo, "h2"))
         A(P(texto))
-        A(fig(titulo_fig, titulo + ".", max_alto=6.6 if titulo_fig == "asm_hoja1" else 7.6))
+        A(fig(titulo_fig, titulo + ".", max_alto=6.4 if titulo_fig == "asm_hoja1" else 7.6))
 
     descripciones = [
-        ("s0", "final = 0; dira ← 0"),
-        ("s1", "n ← a (ROM 00h); dira ← 1; i ← 1; j ← 1"),
-        ("s2", "RAM(i,j) ← a con extensión de signo (we = 1, sel_data = a); dira ← dira + 1; avanza i, j"),
-        ("s3", "k ← 1; p ← 1; |p| ← 1; signo ← 0; det ← 0; banco ← 0 (clr_banco = 1)"),
-        ("s4", "piv ← RAM_A(k,k); si es 0: i ← k + 1"),
-        ("s5", "Lee RAM_A(i,k); si ≠ 0: j ← k, signo ← not signo; si = 0 e i = n: det ← 0; si no: i ← i + 1"),
-        ("s6", "RAM(i,j) ← RAM_A(k,j); tmp ← RAM_B(i,j)"),
-        ("s7", "RAM(k,j) ← tmp; si j ≠ n: j ← j + 1"),
-        ("s8", "banco(k) ← piv; i ← k + 1; j ← k + 1"),
-        ("s9", "mul_a ← piv; mul_b ← RAM_A(i,j)"),
-        ("s10", "t1 ← producto; mul_a ← RAM_A(i,k); mul_b ← RAM_B(k,j)"),
-        ("s11", "t2 ← producto"),
-        ("s12", "t3 ← t1 − t2 (sumador/restador)"),
-        ("s13", "cociente ← 0; sq ← t3(49) xor p(31); residuo ← |t3| (0 − t3 si t3 < 0)"),
-        ("s14", "Si residuo − |p| ≥ 0: residuo ← residuo − |p|; cociente ← cociente + 1"),
-        ("s15", "RAM(i,j) ← cociente, o 0 − cociente si sq = 1; avanza j, i"),
-        ("s16", "p ← piv; |p| ← |piv| (0 − piv si piv < 0); k ← k + 1"),
-        ("s17", "det ← ±RAM_A(n,n); banco(n) ← ±RAM_A(n,n) (0 − RAM_A(n,n) si signo = 1)"),
-        ("s18", "final = 1; dira ← 0"),
+        ("s0", "final = 0. Si inicio = 1: n ← a (ROM 00h); dira ← 1; i ← 1; j ← 1"),
+        ("s1", "RAM(i,j) ← a con extensión de signo; dira ← dira + 1; avanza i, j; al final k ← 1, j ← 1, p ← 1, "
+               "signo ← 0"),
+        ("s2", "piv ← a(k,k) (qb); i ← k + 1; si a(k,k) ≠ 0: banco(k) ← a(k,k)"),
+        ("s3", "Lee a(i,k) (qa); si ≠ 0: signo ← not signo; si = 0 e i = n: det ← 0; si no: i ← i + 1"),
+        ("s4", "RAM(i,j) ← a(k,j) (qb); tmp ← a(i,j) (qa)"),
+        ("s5", "RAM(k,j) ← tmp; si j = n: j ← k; si no: j ← j + 1"),
+        ("s6", "aik ← a(i,k) (qa); j ← k + 1"),
+        ("s7", "mul_a ← piv; mul_b ← a(i,j)"),
+        ("s8", "sr_a ← producto (t1); mul_a ← aik; mul_b ← a(k,j)"),
+        ("s9", "sr_b ← producto (t2); op ← 1"),
+        ("s10", "sr_a ← t1 − t2 (residuo); sr_b ← p; sq ← signo(t1 − t2) xor signo(p); op ← not sq; cociente ← 0"),
+        ("s11", "Si residuo ≠ 0: residuo ← residuo ∓ p; cociente ← cociente + 1. Si no: sr_b ← cociente; op ← 1"),
+        ("s12", "RAM(i,j) ← ±cociente; avanza j, i o k; en el último paso det ← ±cociente"),
+        ("s13", "final = 1. Si inicio = 1: dira ← 1; i ← 1; j ← 1"),
     ]
     A(PageBreak())
     A(P("6.3 Tabla de estados y transiciones", "h2"))
@@ -395,7 +396,7 @@ def contenido():
     A(fig("asm_xs3", "Diagrama ASM del XS3.", max_alto=7.0))
     A(P("Funcionamiento en paralelo", "h2"))
     A(P("Los dos ASM usan el mismo reloj y corren al mismo tiempo. Mientras el procesador calcula (final = 0), el ASM "
-        "XS3 espera en x0 y el display conserva el último valor. Cuando el procesador llega a s18 (final = 1), el ASM "
+        "XS3 espera en x0 y el display conserva el último valor. Cuando el procesador llega a s13 (final = 1), el ASM "
         "XS3 convierte el valor elegido con dir_p y vuelve a x0; como final sigue en 1, empieza otra conversión. Cada "
         "conversión tarda 376 ciclos (3,76 µs), así que al mover los switches el display cambia de inmediato. El "
         "procesador no espera al visualizador y no necesita señales extra: su caja negra sigue siendo la de clase."))
@@ -417,15 +418,19 @@ def contenido():
 
     # 8 -----------------------------------------------------------------------
     A(P("8. División por restas sucesivas", "h1"))
-    A(P("La división está dentro del ASM de Bareiss y usa el sumador/restador. Divide magnitudes: residuo = |t3| y "
-        "divisor = |p|; el signo del resultado (sq = signo(t3) xor signo(p)) se aplica al escribir en la RAM."))
+    A(P("La división está dentro del ASM de Bareiss y usa el sumador/restador con sus dos operaciones. No hace falta "
+        "sacar valores absolutos: el residuo empieza en t1 − t2 y se acerca a 0 de a p por ciclo."))
     V(viñetas([
-        "s13: cociente ← 0; residuo ← |t3| (el sumador/restador calcula 0 − t3 si t3 es negativo).",
-        "s14: el sumador/restador calcula residuo − |p|. Si el resultado no es negativo (bit 49 = 0), residuo ← "
-        "resultado y cociente ← cociente + 1, y el ASM se queda en s14. Si es negativo, pasa a s15.",
-        "s15: RAM(i,j) ← cociente, o 0 − cociente (en el sumador/restador) si sq = 1.",
+        "s10: residuo (sr_a) ← t1 − t2; sr_b ← p; cociente ← 0; sq ← signo(t1 − t2) xor signo(p). Si los dos tienen "
+        "el mismo signo, op ← 1 (resta); si no, op ← 0 (suma).",
+        "s11: si el residuo no es 0, residuo ← residuo − p (o + p) y cociente ← cociente + 1, y el ASM se queda en s11. "
+        "Cuando llega a 0, carga sr_b ← cociente y op ← 1 para calcular 0 − cociente.",
+        "s12: RAM(i,j) ← cociente si sq = 0, o 0 − cociente si sq = 1.",
     ]))
-    A(P("Tarda |cociente| + 1 ciclos en s14. Como la división de Bareiss es exacta, al salir el residuo es 0."))
+    A(P("Ejemplo: t1 − t2 = −12 y p = 3 (signos distintos, op = 0): −12 → −9 → −6 → −3 → 0, cociente = 4 y sq = 1, "
+        "así que a(i,j) = −4 = −12 / 3."))
+    A(P("Tarda |cociente| + 1 ciclos en s11. El lazo termina porque la división de Bareiss es exacta: el residuo "
+        "llega justo a 0 (el enunciado lo garantiza)."))
 
     # 9 a 11: procedimiento UC + CD y sintesis ---------------------------------
     seccion_procesador(h, fig)
@@ -439,7 +444,7 @@ def contenido():
         "[c]divisor_frecuencia[/c] genera un pulso de un ciclo cada 1 ms (cuenta 100 000 ciclos) y una onda cuadrada "
         "de periodo 1 s (cambia cada 500 ms) que se ve en LD15. Los pulsos se usan como habilitación: todo el diseño "
         "trabaja con el mismo reloj, sin relojes derivados. El procesador trabaja a 100 MHz: con un reloj de 1 s, la "
-        "matriz 5×5 por defecto (3 801 ciclos) tardaría más de una hora."))
+        "matriz 5×5 por defecto (3 770 ciclos) tardaría más de una hora."))
     A(P("Antirrebote (uno solo)", "h2"))
     A(P("El bloque [c]antirrebote[/c] sincroniza el botón de inicio con dos flip-flops, lo muestrea cada 1 ms en un "
         "registro de 8 bits y cambia su nivel estable solo con 8 muestras iguales (8 ms sin rebote). Entrega un pulso "
@@ -454,10 +459,10 @@ def contenido():
     # 13 ----------------------------------------------------------------------
     A(P("13. Tiempo de ejecución", "h1"))
     V(viñetas([
-        "Carga de la matriz (s1 a s3): n² + 2 ciclos.",
-        "Por cada paso k: s4, s8 y s16 (3 ciclos); si el pivote es cero, además la búsqueda en s5, 2 ciclos por "
-        "columna intercambiada y otra lectura en s4.",
-        "Por cada elemento actualizado: s9 a s13 y s15 (6 ciclos) más |cociente| + 1 ciclos de división en s14.",
+        "Carga de la matriz (s0 y s1): n² + 1 ciclos.",
+        "Por cada paso k: s2 (1 ciclo); si el pivote es cero, además la búsqueda en s3, 2 ciclos por columna "
+        "intercambiada y otra lectura en s2. Por cada fila: s6 (1 ciclo).",
+        "Por cada elemento actualizado: s7 a s10 y s12 (5 ciclos) más |cociente| + 1 ciclos de división en s11.",
         "XS3: 376 ciclos por conversión, en paralelo, sin detener al procesador.",
     ]))
     A(P("La división por restas sucesivas domina el tiempo cuando los valores son grandes. Las matrices de prueba "
@@ -565,16 +570,20 @@ def contenido():
         "necesita para asignar los pines.",
         "[b]Salidas en binario.[/b] det y pivote salen del procesador en binario; la conversión a decimal la hace el "
         "visualizador.",
-        "[b]Dos RAM.[/b] Son dos instancias del modelo del profesor con el mismo contenido, más un decodificador de "
-        "dirección (tabla). Con una sola RAM habría que agregar estados en s6 y s10.",
-        "[b]op del sumador/restador.[/b] El algoritmo solo resta, así que op vale 1 en todos los estados que lo usan.",
+        "[b]Dos RAM.[/b] Son dos instancias del modelo del profesor con el mismo contenido: la RAM A lee a(i,j) y la "
+        "RAM B lee a(k,j). Con una sola RAM habría que agregar un estado por elemento (en s8) y por columna "
+        "intercambiada (en s4).",
+        "[b]Dirección de la RAM.[/b] a(f,c) se guarda en f & c(1 downto 0), o en \"11\" & f para la columna 5. Así no "
+        "hace falta multiplicar ni sumar para ubicar un elemento; quedan 7 de las 32 palabras sin usar.",
+        "[b]División con signo.[/b] En lugar de dividir valores absolutos, el residuo se acerca a 0 sumando o restando "
+        "p. Esto usa las dos operaciones del sumador/restador y termina porque la división de Bareiss es exacta.",
         "[b]Multiplicador.[/b] Es combinacional ([c]*[/c] de std_logic_signed sobre std_logic_vector, no el tipo "
         "signed). Si lo quieren por sumas y desplazamientos, hay que cambiarlo.",
         "[b]Unidad de control Mealy.[/b] El ASM tiene cajas de salida condicional, así que la ROM de salida recibe 8 "
-        "condiciones además del estado (8192 × 56). Si el profesor quiere una UC Moore, cada caja condicional pasa a "
+        "condiciones además del estado (4096 × 41). Si el profesor quiere una UC Moore, cada caja condicional pasa a "
         "ser un estado y la ROM de salida queda de 2^n palabras.",
-        "[b]Registros sin compartir.[/b] El VHDL de alto nivel deja un registro por variable; el análisis de tiempos "
-        "de vida (sección 9.12) muestra que las temporales del lazo cabrían en 3 registros.",
+        "[b]Banco de pivotes.[/b] b1 a b4 guardan los pivotes 1 a n − 1; el pivote n es el determinante, así que con "
+        "dir_p = n la salida pivote muestra det.",
     ]))
     A(P("Limitaciones", "h2"))
     V(viñetas([
