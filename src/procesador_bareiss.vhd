@@ -20,8 +20,9 @@
 --   asm_bareiss       ASM del algoritmo de Bareiss (unidad de control)
 --   procesador_bareiss  une los bloques (descripcion estructural)
 --
--- Solo se usan std_logic y std_logic_vector. La unica excepcion es el arreglo
--- de la RAM, que es el modelo del profesor.
+-- Solo se usan std_logic y std_logic_vector. Las excepciones son el arreglo de
+-- la RAM (modelo del profesor) y el tipo de los estados del ASM
+-- (type estados_asm), declarado como en los ejemplos del curso.
 ----------------------------------------------------------------------------------
 
 
@@ -369,27 +370,8 @@ architecture Behavioral of asm_bareiss is
 ------------------------------------------------------------------------------
 -- Estados
 ------------------------------------------------------------------------------
-constant s0  : STD_LOGIC_VECTOR (4 downto 0) := "00000";
-constant s1  : STD_LOGIC_VECTOR (4 downto 0) := "00001";
-constant s2  : STD_LOGIC_VECTOR (4 downto 0) := "00010";
-constant s3  : STD_LOGIC_VECTOR (4 downto 0) := "00011";
-constant s4  : STD_LOGIC_VECTOR (4 downto 0) := "00100";
-constant s5  : STD_LOGIC_VECTOR (4 downto 0) := "00101";
-constant s6  : STD_LOGIC_VECTOR (4 downto 0) := "00110";
-constant s7  : STD_LOGIC_VECTOR (4 downto 0) := "00111";
-constant s8  : STD_LOGIC_VECTOR (4 downto 0) := "01000";
-constant s9  : STD_LOGIC_VECTOR (4 downto 0) := "01001";
-constant s10 : STD_LOGIC_VECTOR (4 downto 0) := "01010";
-constant s11 : STD_LOGIC_VECTOR (4 downto 0) := "01011";
-constant s12 : STD_LOGIC_VECTOR (4 downto 0) := "01100";
-constant s13 : STD_LOGIC_VECTOR (4 downto 0) := "01101";
-constant s14 : STD_LOGIC_VECTOR (4 downto 0) := "01110";
-constant s15 : STD_LOGIC_VECTOR (4 downto 0) := "01111";
-constant s16 : STD_LOGIC_VECTOR (4 downto 0) := "10000";
-constant s17 : STD_LOGIC_VECTOR (4 downto 0) := "10001";
-constant s18 : STD_LOGIC_VECTOR (4 downto 0) := "10010";
-
-signal st : STD_LOGIC_VECTOR (4 downto 0);
+type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14,s15,s16,s17,s18);
+signal st : estados_asm;
 
 ------------------------------------------------------------------------------
 -- Constantes

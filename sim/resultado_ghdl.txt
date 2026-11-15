@@ -1,5 +1,5 @@
 Simulacion con GHDL 4.1.0 (ghdl -fsynopsys -fexplicit)
-Fecha: 2026-11-07
+Fecha: 2026-11-07. Estados declarados con type estados_asm (como en los ejemplos del curso).
 
 == sim/probar_matrices.py --todas : sim/tb_procesador.vhd con cada matriz de prueba en la ROM
 

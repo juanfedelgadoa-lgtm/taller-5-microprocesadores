@@ -1,0 +1,39 @@
+Estimacion de recursos con Yosys 0.71 (synth_xilinx -family xc7) a partir de
+ghdl --synth --out=verilog det_bareiss. NO es el reporte de ISE: sirve como
+referencia de orden de magnitud. ISE (XST) puede dar valores distintos.
+
+--- Por modulo, sin aplanar (cuenta una instancia: dir_ram tiene 3 y ram_memory 2) ---
+antirrebote              LUT=    5 FF=  12 CARRY4=  0 DSP48E1=0 RAM32M=0
+asm_bareiss              LUT=  622 FF= 449 CARRY4= 13 DSP48E1=0 RAM32M=0
+banco_pivotes            LUT=  134 FF= 160 CARRY4=  0 DSP48E1=0 RAM32M=0
+det_bareiss              LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
+dir_ram                  LUT=    5 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
+divisor_frecuencia       LUT=   21 FF=  27 CARRY4=  8 DSP48E1=0 RAM32M=0
+multiplicador            LUT=    0 FF=   0 CARRY4=  0 DSP48E1=2 RAM32M=0
+procesador_bareiss       LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
+ram_memory               LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=6
+rom_matriz               LUT=    5 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
+sumador_restador         LUT=   50 FF=   0 CARRY4= 13 DSP48E1=0 RAM32M=0
+visualizador             LUT=  222 FF= 132 CARRY4= 13 DSP48E1=0 RAM32M=0
+TOTAL (jerarquico)       LUT= 1074 FF= 780 CARRY4= 47 DSP48E1=2 RAM32M=12
+
+--- Diseno aplanado (synth_xilinx -flatten) ---
+     1921 cells
+        1   BUFG
+       47   CARRY4
+        2   DSP48E1
+      778   FDCE
+        2   FDPE
+        6   IBUF
+       10   INV
+        2   LUT1
+      132   LUT2
+      145   LUT3
+      304   LUT4
+      288   LUT5
+      151   LUT6
+        7   MUXF7
+        1   MUXF8
+       19   OBUF
+       12   RAM32M
+

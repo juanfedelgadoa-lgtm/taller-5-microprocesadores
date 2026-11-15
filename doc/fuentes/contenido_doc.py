@@ -2,8 +2,10 @@
 procesador de Bareiss y visualizador con el ASM XS3).
 
 Lo importa generar_pdf.py. Los resultados de simulacion se leen de
-sim/resultado_ghdl.txt, la tabla de matrices de sim/modelo_referencia.py y las
-transiciones de los ASM de diagramas.py (que las compara con el VHDL).
+sim/resultado_ghdl.txt, la tabla de matrices de sim/modelo_referencia.py, las
+transiciones de los ASM de diagramas.py (que las compara con el VHDL) y las
+secciones 9 a 11 (camino de datos, unidad de control y sintesis esperada) de
+procedimiento_doc.py y uc_cd.py.
 """
 import re
 
@@ -13,6 +15,7 @@ from reportlab.platypus import KeepTogether, PageBreak, Preformatted, Spacer, Ta
 from reportlab.platypus.tableofcontents import TableOfContents
 
 import diagramas
+from procedimiento_doc import seccion_procesador, seccion_sintesis, seccion_visualizador
 from generar_pdf import E, P, RAIZ, codigo, figura, tabla, traza_xs3, viñetas
 from modelo_referencia import MATRICES, MATRIZ_POR_DEFECTO, bareiss, texto_display
 
@@ -21,32 +24,7 @@ E["h2_anexo"] = ParagraphStyle("h2_anexo", parent=E["h2"])   # no aparece en el 
 ARCHIVOS_VHDL = ["det_bareiss.vhd", "procesador_bareiss.vhd", "visualizador.vhd",
                  "antirrebote.vhd", "divisor_frecuencia.vhd"]
 
-# ---------------------------------------------------------------------------
-# Palabra de control del procesador (18 bits), igual a las asignaciones
-# concurrentes de asm_bareiss en src/procesador_bareiss.vhd
-# ---------------------------------------------------------------------------
 ESTADOS_B = [f"s{i}" for i in range(19)]
-
-
-def palabra_control(st):
-    n = int(st[1:])
-    fra = "01" if n in (4, 6) else "10" if n == 17 else "00"          # i | k | n
-    cra = "01" if n in (4, 5, 10) else "10" if n == 17 else "00"       # j | k | n
-    frb = "1" if n == 10 else "0"                                      # i | k
-    fw = "1" if n == 7 else "0"                                        # i | k
-    we = "1" if n in (2, 6, 7, 15) else "0"
-    data = {2: "00", 6: "01", 7: "10"}.get(n, "11")                    # a | qa | tmp | ±cociente
-    sra = {12: "01", 14: "10"}.get(n, "00")                            # 0 | t1 | residuo
-    srb = {12: "001", 13: "010", 14: "011", 15: "100", 16: "101", 17: "110"}.get(n, "000")
-    op = "1" if 12 <= n <= 17 else "0"
-    clr = "1" if n == 3 else "0"
-    web = "1" if n in (8, 17) else "0"
-    selb = "1" if n == 17 else "0"
-    return [we, data, fra, cra, frb, fw, sra, srb, op, clr, web, selb]
-
-
-CAMPOS_PC = ["we", "sel_[br]data", "sel_[br]fra", "sel_[br]cra", "sel_[br]frb", "sel_[br]fw", "sel_[br]sra",
-             "sel_[br]srb", "op", "clr_[br]banco", "we_[br]banco", "sel_[br]banco"]
 
 
 def resultados_sim():
@@ -96,7 +74,7 @@ def contenido():
     A(P("TALLER 5", "titulo"))
     A(P("Microprocesador de propósito específico:[br]determinante por el algoritmo de Bareiss[br]con salida decimal (algoritmo XS3)", "titulo"))
     A(Spacer(1, 0.3 * inch))
-    A(P("Pseudoalgoritmo, caja negra, cajas grises, camino de datos, diagramas ASM y código VHDL", "subtitulo"))
+    A(P("Pseudoalgoritmo, caja negra, diagramas ASM, camino de datos, unidad de control, síntesis esperada y código VHDL", "subtitulo"))
     A(Spacer(1, 0.15 * inch))
     A(P("Herramienta: Xilinx ISE 14.7 (XST, ISim) · Tarjeta: Digilent Nexys A7-100T (XC7A100T-1CSG324C)", "subtitulo"))
     A(Spacer(1, 0.8 * inch))
@@ -135,13 +113,15 @@ def contenido():
     A(P("Reglas de descripción", "h2"))
     A(tabla([
         ["Regla", "Cómo se cumple"],
-        ["Solo std_logic, excepto la RAM",
-         "Todas las señales, puertos y constantes son std_logic o std_logic_vector. La RAM es el modelo del profesor "
-         "sin cambios ([c]type mem is array(0 to 31) of std_logic_vector(31 downto 0)[/c] y [c]conv_integer[/c]); es "
-         "el único lugar del diseño donde aparecen."],
+        ["Solo std_logic, excepto la RAM y los estados",
+         "Todas las señales de datos, puertos y constantes son std_logic o std_logic_vector. Hay dos excepciones, "
+         "las dos tomadas de los ejemplos del curso: la RAM es el modelo del profesor sin cambios ([c]type mem is "
+         "array(0 to 31) of std_logic_vector(31 downto 0)[/c] y [c]conv_integer[/c]), y los estados de cada ASM se "
+         "declaran como en ASM_Sumax y ASM_contador_unos: [c]type estados_asm is (s0, s1, …); signal st : "
+         "estados_asm;[/c]."],
         ["Sin integer, signed ni unsigned",
-         "No hay [c]integer[/c], [c]natural[/c], [c]signed[/c], [c]unsigned[/c], [c]boolean[/c], tipos enumerados ni "
-         "genéricos. Los estados son constantes [c]std_logic_vector[/c] ([c]case st is / when s0 =>[/c])."],
+         "No hay [c]integer[/c], [c]natural[/c], [c]signed[/c], [c]unsigned[/c], [c]boolean[/c] ni genéricos. El ASM "
+         "se escribe como en los ejemplos: [c]case st is / when s0 =>[/c]."],
         ["Sin variables ni descripciones tipo software",
          "No hay [c]variable[/c], [c]function[/c] ni lazos [c]for[/c]/[c]while[/c]. Las repeticiones las hace el ASM, "
          "un paso por ciclo de reloj, con contadores."],
@@ -152,7 +132,7 @@ def contenido():
          "Entidades estructurales ([c]procesador_bareiss[/c], [c]det_bareiss[/c]) que solo conectan bloques. La "
          "síntesis genérica con GHDL termina sin errores ni latches, con un multiplicador y un sumador de 50 bits "
          "en el procesador."],
-        ["Reglas del ASM", "Verificadas con un programa sobre los diagramas (sección 7.2)."],
+        ["Reglas del ASM", "Verificadas con un programa sobre los diagramas (sección 6.2)."],
         ["Solo para simulación", "Los testbench usan variables, integer, real, string y wait; no se sintetizan."],
     ], [1.9, 5.0]))
     A(P("Requisitos del enunciado y de la clase", "h2"))
@@ -186,6 +166,9 @@ def contenido():
         ["sim/tb_det_bareiss.vhd", "Testbench de la tarjeta: botón con rebotes y lectura del display."],
         ["sim/modelo_referencia.py", "Valores esperados; cambia la ROM dentro de procesador_bareiss.vhd."],
         ["sim/probar_matrices.py, sim/resultado_ghdl.txt", "Prueba con las 8 matrices y resultados de la simulación."],
+        ["doc/fuentes/uc_cd.py, sim/resultado_modelo_uc_cd.txt",
+         "Camino de datos y unidad de control esperados (tablas de las ROM) y su simulación ciclo a ciclo."],
+        ["sim/estimacion_yosys.txt", "Estimación de recursos en Artix-7 con Yosys (referencia para comparar con ISE)."],
         ["doc/figuras/*.png, doc/fuentes/*.py", "Figuras de este documento y los scripts que las generan y verifican."],
     ], [2.4, 4.5])]))
 
@@ -215,7 +198,7 @@ def contenido():
     A(PageBreak())
     A(P("3. Pseudoalgoritmo con el hardware disponible", "h1"))
     A(P("Cada línea indica el estado del ASM que la ejecuta. Las operaciones de un mismo estado ocurren en el mismo "
-        "ciclo de reloj. RAM(f,c) es el elemento a(f,c); RAM_A y RAM_B son las dos copias (sección 5.2)."))
+        "ciclo de reloj. RAM(f,c) es el elemento a(f,c); RAM_A y RAM_B son las dos copias (sección 9.4)."))
     A(P("Procesador de Bareiss", "h2"))
     A(codigo(
         "s0 :  final = 0;  esperar inicio = 1\n"
@@ -298,87 +281,7 @@ def contenido():
 
     # 5 -----------------------------------------------------------------------
     A(PageBreak())
-    A(P("5. Cajas grises y camino de datos", "h1"))
-    A(P("Cada ASM se separa en unidad de control (UC) y camino de datos (CD), como en el ejemplo de clase: la UC "
-        "recibe clk, rst, inicio y las señales de estado, y entrega la palabra de control (PC) y final; el CD recibe "
-        "la PC y los datos de entrada, y entrega las señales de estado y las salidas."))
-    A(P("5.1 Procesador de Bareiss", "h2"))
-    A(fig("gris_proc", "Caja gris del procesador.", max_alto=2.6))
-    A(P("La UC es el registro de estado [c]st[/c] (s0 a s18, 5 bits) con su lógica de estado siguiente. La palabra de "
-        "control tiene 18 bits de selección y escritura (tabla de la sección 10.1) más las habilitaciones de carga de "
-        "los registros, que se indican en cada caja del ASM. En el VHDL la PC no aparece como un vector: cada bit es la "
-        "condición de un multiplexor o de una escritura, por ejemplo [c]we <= '1' when (st = s2 or st = s6 or "
-        "st = s7 or st = s15)[/c]."))
-    A(tabla([
-        ["Campo de la PC", "Bits", "Valores", "Controla"],
-        ["we", "1", "1 = escribe", "Escritura de RAM A y RAM B (al mismo tiempo)"],
-        ["sel_data", "2", "00 a · 01 qa · 10 tmp · 11 ±cociente", "Dato que se escribe en las RAM"],
-        ["sel_fra, sel_cra", "2 + 2", "00 i/j · 01 k · 10 n", "Fila y columna de lectura de RAM A"],
-        ["sel_frb", "1", "0 i · 1 k", "Fila de lectura de RAM B (la columna siempre es j)"],
-        ["sel_fw", "1", "0 i · 1 k", "Fila de escritura (la columna siempre es j)"],
-        ["sel_sra", "2", "00 cero · 01 t1 · 10 residuo", "Operando A del sumador/restador"],
-        ["sel_srb", "3", "000 cero · 001 t2 · 010 t3 · 011 |p| · 100 cociente · 101 piv · 110 qa",
-         "Operando B del sumador/restador"],
-        ["op", "1", "0 suma · 1 resta", "Operación del sumador/restador"],
-        ["clr_banco, we_banco", "1 + 1", "1 = activo", "Borrar el banco / escribir un pivote"],
-        ["sel_banco", "1", "0: k, piv · 1: n, ±a(n,n)", "Dirección y dato del banco"],
-    ], [1.25, 0.5, 2.75, 2.4]))
-    A(Spacer(1, 4))
-    A(tabla([
-        ["Señal de estado (CD → UC)", "Definición", "Se pregunta en"],
-        ["inicio (externa)", "Pulso del antirrebote", "s0, s18"],
-        ["z_a", "qa = 0 (salida de RAM A comparada con cero)", "s4, s5"],
-        ["i_n, j_n", "i = n, j = n (comparadores de 3 bits)", "s2, s5, s7, s15"],
-        ["k1_n", "k + 1 = n", "s16"],
-        ["t3_neg", "t3(49), signo del numerador", "s13"],
-        ["res_neg", "resultado(49): residuo − |p| < 0", "s14"],
-        ["sq", "Registro del signo del cociente", "s15"],
-        ["piv_neg", "piv(31)", "s16"],
-        ["signo", "Registro de paridad de intercambios", "s17"],
-    ], [1.9, 3.3, 1.7]))
-    A(P("5.2 Camino de datos del procesador", "h2"))
-    A(P("El camino de datos tiene la ROM, las dos RAM con sus decodificadores de dirección, las dos unidades "
-        "funcionales, el banco de pivotes y los registros del algoritmo, unidos por multiplexores que elige la "
-        "palabra de control. La figura está al final de esta sección."))
-    A(P("Dos RAM y el decodificador de dirección", "h2"))
-    A(P("La RAM del profesor tiene una sola dirección de lectura. El algoritmo necesita leer dos elementos a la vez "
-        "en dos sitios: el segundo producto, a(i,k)·a(k,j) (estado s10), y el intercambio de filas, que lee a(k,j) y "
-        "a(i,j) (estado s6). Por eso hay dos RAM iguales: comparten wr_add, data y we, así que siempre guardan lo "
-        "mismo, y cada una se lee por su propia dirección (RAM_A y RAM_B). Con una sola RAM cada uno de esos "
-        "estados se partiría en dos."))
-    A(P("La RAM tiene 32 palabras con dirección de 5 bits. La entidad [c]dir_ram[/c] convierte fila y columna en la "
-        "dirección 5·(fila − 1) + (columna − 1), de 0 a 24, con una tabla (with … select), sin multiplicar ni sumar. "
-        "Hay tres: lectura A, lectura B y escritura. Las palabras 25 a 31 no se usan."))
-    A(P("Unidades funcionales", "h2"))
-    V(viñetas([
-        "[b]multiplicador[/b]: combinacional, 25 × 25 → 50 bits con signo ([c]*[/c] de std_logic_signed sobre "
-        "std_logic_vector). Sus entradas son los registros mul_a y mul_b, cargados un ciclo antes.",
-        "[b]sumador_restador[/b]: un sumador de 50 bits, [c]s = a + (b xor op) + op[/c]. Con op = 1 invierte b y suma 1 "
-        "(complemento a 2), es decir, resta. El algoritmo solo resta: t1 − t2 (s12), 0 − t3 (s13), residuo − |p| "
-        "(s14), 0 − cociente (s15), 0 − piv (s16) y 0 − a(n,n) (s17).",
-    ]))
-    A(fig("camino_datos_proc", "Camino de datos del procesador de Bareiss.", max_alto=8.0))
-    A(PageBreak())
-    A(P("5.3 Visualizador", "h2"))
-    A(fig("gris_vis", "Caja gris del visualizador.", max_alto=2.4))
-    A(tabla([
-        ["Campo de la PC", "Estado", "Acción"],
-        ["ld_bin", "x0 (si final = 1)", "bin ← |val|; neg ← val(31)"],
-        ["clr_dec", "x1", "dec ← 0; cont ← 0"],
-        ["ld_lsb", "x2", "dec(0) ← bin(31)"],
-        ["clr_d", "x2 (si cont ≠ 31)", "d ← 0"],
-        ["ld_dig", "x3 (si dígito(d) > 4)", "dígito(d) ← dígito(d) + 3"],
-        ["inc_d", "x3 (si d ≠ 9)", "d ← d + 1"],
-        ["desp", "x4", "dec ← dec << 1; bin ← bin << 1; cont ← cont + 1"],
-        ["ld_disp", "x5", "disp ← dec; disp_neg ← neg"],
-    ], [1.3, 1.7, 3.9]))
-    A(P("Señales de estado del visualizador: final (externa), val_neg = val(31), cont_31 = (cont = 31), "
-        "dig_mayor_4 = (dígito(d) > 4) y d_9 = (d = 9)."))
-    A(fig("camino_datos_vis", "Camino de datos del visualizador.", max_alto=6.2))
-
-    # 6 -----------------------------------------------------------------------
-    A(PageBreak())
-    A(P("6. Convenciones de los diagramas ASM", "h1"))
+    A(P("5. Convenciones de los diagramas ASM", "h1"))
     A(tabla([
         ["Elemento", "Significado"],
         ["Caja de estado (rectángulo azul)", "Operaciones de todo el estado (salidas tipo Moore)."],
@@ -395,11 +298,11 @@ def contenido():
     A(Spacer(1, 4))
     A(P("Todas las decisiones de un bloque usan los valores que tienen los registros al comenzar el ciclo."))
 
-    # 7 -----------------------------------------------------------------------
-    A(P("7. Diagrama ASM del procesador de Bareiss", "h1"))
-    A(P("7.1 Vista general", "h2"))
+    # 6 -----------------------------------------------------------------------
+    A(P("6. Diagrama ASM del procesador de Bareiss", "h1"))
+    A(P("6.1 Vista general", "h2"))
     A(fig("vista_general", "Diagrama de estados del ASM de Bareiss (19 estados).", max_alto=3.0))
-    A(P("7.2 Verificación de las reglas del ASM", "h2"))
+    A(P("6.2 Verificación de las reglas del ASM", "h2"))
     A(P("Las reglas de clase son: (1) para cada estado presente y conjunto de decisiones solo se define un estado "
         "siguiente; (2) un camino de cajas de decisión debe llegar a un estado, sin ciclos. El programa "
         "doc/fuentes/diagramas.py revisa los mismos diagramas que se dibujan, antes de generar este documento:"))
@@ -413,7 +316,7 @@ def contenido():
     ]))
     estado_verif = ("Resultado: sin errores en los 25 estados (19 de Bareiss y 6 del XS3)." if not errores_asm
                     else "Resultado: ERRORES: " + "; ".join(errores_asm))
-    A(P(f"[b]{estado_verif}[/b] La tabla de transiciones de la sección 7.3 la genera ese mismo programa."))
+    A(P(f"[b]{estado_verif}[/b] La tabla de transiciones de la sección 6.3 la genera ese mismo programa."))
 
     hojas = [
         ("asm_hoja1", "Hoja 1: espera y carga de la matriz (s0 a s3)",
@@ -463,15 +366,15 @@ def contenido():
         ("s18", "final = 1; dira ← 0"),
     ]
     A(PageBreak())
-    A(P("7.3 Tabla de estados y transiciones", "h2"))
+    A(P("6.3 Tabla de estados y transiciones", "h2"))
     A(tabla([["Estado", "Operaciones"]] + [list(d) for d in descripciones], [0.6, 6.3]))
     A(Spacer(1, 6))
     A(P("Transiciones leídas de los diagramas (una fila por camino de decisiones):"))
     A(tabla(tabla_transiciones(tabla_asm, ESTADOS_B), [0.6, 4.9, 1.4]))
 
-    # 8 -----------------------------------------------------------------------
+    # 7 -----------------------------------------------------------------------
     A(PageBreak())
-    A(P("8. ASM del XS3 (visualizador)", "h1"))
+    A(P("7. ASM del XS3 (visualizador)", "h1"))
     A(P("El ASM del XS3 está en visualizador.vhd, separado del ASM de Bareiss. Usa sus propias unidades: un "
         "restador 0 − val para el valor absoluto, un sumador de 4 bits para el +3 y un comparador > 4. Tiene un "
         "estado por paso del documento XS3:"))
@@ -512,8 +415,8 @@ def contenido():
     A(P("Transiciones del ASM XS3", "h2"))
     A(tabla(tabla_transiciones(tabla_asm, [f"x{i}" for i in range(6)]), [0.6, 4.9, 1.4]))
 
-    # 9 -----------------------------------------------------------------------
-    A(P("9. División por restas sucesivas", "h1"))
+    # 8 -----------------------------------------------------------------------
+    A(P("8. División por restas sucesivas", "h1"))
     A(P("La división está dentro del ASM de Bareiss y usa el sumador/restador. Divide magnitudes: residuo = |t3| y "
         "divisor = |p|; el signo del resultado (sq = signo(t3) xor signo(p)) se aplica al escribir en la RAM."))
     V(viñetas([
@@ -524,50 +427,13 @@ def contenido():
     ]))
     A(P("Tarda |cociente| + 1 ciclos en s14. Como la división de Bareiss es exacta, al salir el residuo es 0."))
 
-    # 10 ----------------------------------------------------------------------
-    A(PageBreak())
-    A(P("10. Unidad de control", "h1"))
-    A(P("10.1 Palabra de control por estado (procesador)", "h2"))
-    A(P("Valores que produce el VHDL en cada estado (los campos de la sección 5.1). Cuando un campo no se usa, la "
-        "tabla muestra el valor por defecto del multiplexor."))
-    filas = [["Estado"] + CAMPOS_PC]
-    for st in ESTADOS_B:
-        filas.append([st] + palabra_control(st))
-    A(tabla(filas, [0.6, 0.35, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.35, 0.55, 0.55, 0.55]))
-    A(Spacer(1, 4))
-    A(P("Además: final = 1 solo en s18. Las cargas de registros de cada estado están en la tabla de la sección 7.3."))
-    A(P("10.2 Registros y anchos", "h2"))
-    A(tabla([
-        ["Registro", "Bits", "Uso"],
-        ["st (procesador)", "5", "Estado del ASM de Bareiss (19 estados)"],
-        ["dira_r", "5", "Contador de dirección de la ROM"],
-        ["n, i, j, k", "3 c/u", "Tamaño de la matriz y contadores de fila, columna y paso"],
-        ["piv, p, pabs", "32 c/u", "Pivote actual, pivote anterior y |p| (divisor)"],
-        ["tmp", "32", "Intercambio de filas"],
-        ["mul_a, mul_b", "25 c/u", "Entradas del multiplicador"],
-        ["t1, t2, t3", "50 c/u", "Productos y numerador de la fórmula (1)"],
-        ["residuo, cociente", "50, 32", "División por restas sucesivas (cociente es un contador)"],
-        ["signo, sq", "1 c/u", "Paridad de intercambios y signo del cociente"],
-        ["det", "32", "Determinante en binario"],
-        ["xs (visualizador)", "3", "Estado del ASM XS3 (6 estados)"],
-        ["bin, dec", "32, 40", "Registros binario y decimal del XS3"],
-        ["cont, d", "5, 4", "Contadores del XS3: bits procesados y dígito revisado"],
-        ["neg, disp, disp_neg", "1, 40, 1", "Signo convertido y valor que muestra el display"],
-        ["dsel", "3", "Dígito encendido del display"],
-    ], [1.8, 1.1, 4.0]))
-    A(P("Los contadores (dira, i, j, k, cociente, cont, d, dsel) tienen su propio +1, como el i = i + 1 del ejemplo "
-        "Sumax de clase. Las operaciones sobre los datos de la matriz pasan por el sumador/restador."))
-    A(P("Por la identidad de Sylvester, cada valor de la RAM es el determinante de una submatriz de A, y la desigualdad "
-        "de Hadamard lo acota: |det| ≤ (32·√m)[sup]m[/sup] para una submatriz m×m."))
-    V(viñetas([
-        "Operandos del multiplicador: submatrices de hasta 4×4, |x| < 2[sup]24[/sup]. Caben en 25 bits con signo.",
-        "Determinante 5×5: |det| ≤ 1,88 × 10[sup]9[/sup] < 2[sup]31[/sup]. RAM, det, cociente y bin son de 32 bits.",
-        "Numerador: |t3| ≤ 3,2 × 10[sup]14[/sup] < 2[sup]49[/sup]. t1, t2, t3, residuo y el sumador/restador son de 50 bits.",
-        "Decimal: 32 bits binarios necesitan 10 dígitos. El display muestra 7 y LD1 avisa si hay más.",
-    ]))
+    # 9 a 11: procedimiento UC + CD y sintesis ---------------------------------
+    seccion_procesador(h, fig)
+    seccion_visualizador(h, fig)
+    seccion_sintesis(h, fig)
 
-    # 11 ----------------------------------------------------------------------
-    A(P("11. Interfaz con la tarjeta", "h1"))
+    # 12 ----------------------------------------------------------------------
+    A(P("12. Interfaz con la tarjeta", "h1"))
     A(P("Divisor de frecuencia", "h2"))
     A(P("El oscilador de la Nexys A7 es de 100 MHz (pin E3, sección 5 del manual de la tarjeta). El bloque "
         "[c]divisor_frecuencia[/c] genera un pulso de un ciclo cada 1 ms (cuenta 100 000 ciclos) y una onda cuadrada "
@@ -585,8 +451,8 @@ def contenido():
         "El display cambia de dígito con cada pulso de 1 ms (barrido de 8 ms, 125 Hz): AN7 muestra el signo y AN6..AN0 "
         "los 7 dígitos. LD1 se enciende si los dígitos 7 a 9 del valor no son cero."))
 
-    # 12 ----------------------------------------------------------------------
-    A(P("12. Tiempo de ejecución", "h1"))
+    # 13 ----------------------------------------------------------------------
+    A(P("13. Tiempo de ejecución", "h1"))
     V(viñetas([
         "Carga de la matriz (s1 a s3): n² + 2 ciclos.",
         "Por cada paso k: s4, s8 y s16 (3 ciclos); si el pivote es cero, además la búsqueda en s5, 2 ciclos por "
@@ -599,9 +465,9 @@ def contenido():
         "(0,19 s). Con valores «del orden de cientos de miles», como dijo el profesor, cada división tarda del orden de "
         "1 ms y el cálculo completo, del orden de decenas de milisegundos."))
 
-    # 13 ----------------------------------------------------------------------
-    A(P("13. Implementación en ISE 14.7 y la Nexys A7", "h1"))
-    A(P("13.1 Proyecto", "h2"))
+    # 14 ----------------------------------------------------------------------
+    A(P("14. Implementación en ISE 14.7 y la Nexys A7", "h1"))
+    A(P("14.1 Proyecto", "h2"))
     V(viñetas([
         "File → New Project. Top-level source type: HDL. Family: Artix7 · Device: XC7A100T · Package: CSG324 · "
         "Speed: −1 · Synthesis: XST · Simulator: ISim · Preferred language: VHDL.",
@@ -613,7 +479,7 @@ def contenido():
         "la restricción de 10 ns (TS_sys_clk).",
         "Programación: usen iMPACT de ISE o el Hardware Manager de Vivado (Lab Edition) con el archivo .bit.",
     ]))
-    A(P("13.2 Cambiar la matriz (día de la evaluación)", "h2"))
+    A(P("14.2 Cambiar la matriz (día de la evaluación)", "h2"))
     V(viñetas([
         "Opción 1: editar la ROM en src/procesador_bareiss.vhd, entre las marcas «>>> INICIO ROM» y «<<< FIN ROM». La "
         "línea de 00h es n; las siguientes son a11, a21, …, an1, a12, … en complemento a 2 de 6 bits.",
@@ -623,14 +489,14 @@ def contenido():
         "testbench.",
         "Sintetizar y volver a programar la FPGA.",
     ]))
-    A(P("13.3 Operación en la tarjeta", "h2"))
+    A(P("14.3 Operación en la tarjeta", "h2"))
     V(viñetas([
         "Pulsar BTNU (rst). Poner SW2..SW0 en 000.",
         "Pulsar BTNC (inicio). Cuando termina, LD0 (final) se enciende y el display muestra el determinante.",
         "Poner SW2..SW0 en 1 a n para ver el pivote k; con k = n se ve otra vez el determinante.",
         "Si LD1 está encendido, el valor tiene más de 7 dígitos y se ven los 7 de abajo. LD15 parpadea cada segundo.",
     ]))
-    A(P("13.4 Matrices de prueba", "h2"))
+    A(P("14.4 Matrices de prueba", "h2"))
     filas = [["#", "n", "Matriz A", "det", "Pivotes (dir_p = 1..n)", "Qué prueba"]]
     queprueba = ["Caso básico 2×2", "Ejemplo del documento", "a11 = 0: intercambio en k = 1",
                  "5×5 general (ROM por defecto)", "Pivote negativo; intercambio en k = 2",
@@ -643,7 +509,7 @@ def contenido():
     A(tabla(filas, [0.3, 0.25, 1.95, 0.85, 1.65, 1.9]))
     A(P(f"src/procesador_bareiss.vhd trae la matriz {MATRIZ_POR_DEFECTO}. Para cargar otra de la lista: "
         "[c]python3 sim/modelo_referencia.py rom <número>[/c]."))
-    A(P("13.5 Pines (src/nexys_a7.ucf)", "h2"))
+    A(P("14.5 Pines (src/nexys_a7.ucf)", "h2"))
     A(tabla([
         ["Señal", "Pines"],
         ["clk", "E3 (100 MHz)"],
@@ -654,8 +520,8 @@ def contenido():
         ["an(0..7)", "J17, J18, T9, J14, P14, T14, K2, U13"],
     ], [1.9, 5.0]))
 
-    # 14 ----------------------------------------------------------------------
-    A(P("14. Simulación", "h1"))
+    # 15 ----------------------------------------------------------------------
+    A(P("15. Simulación", "h1"))
     V(viñetas([
         "[b]sim/tb_procesador.vhd[/b] (con sim/pkg_prueba.vhd) lee la matriz de la ROM, calcula el determinante y los "
         "pivotes esperados con un modelo de Bareiss en VHDL, pulsa inicio, compara det, recorre dir_p = 1 a n "
@@ -666,6 +532,8 @@ def contenido():
         "−17 121 828, ±2 147 483 647 y pivotes elegidos con dir_p, y comprueba que con final = 0 el display no cambie.",
         "[b]sim/tb_det_bareiss.vhd[/b] prueba la tarjeta completa con tiempos reales: pulsa BTNC con rebotes, comprueba "
         "que hay un solo cálculo y lee los 8 dígitos decodificando an y seg con dir_p = 0, 2, 3 y n.",
+        "[b]doc/fuentes/uc_cd.py[/b] simula el camino de datos y la unidad de control de la sección 9 (las dos ROM) y "
+        "obtiene los mismos resultados y ciclos que GHDL (sección 9.11).",
     ]))
     res = resultados_sim()
     filas = [["#", "n", "det esperado", "det del procesador", "Ciclos hasta final", "Resultado"]]
@@ -685,10 +553,11 @@ def contenido():
         "último pivote sin el signo de los intercambios (matriz 2) y el antirrebote muestreando cada ciclo en lugar de "
         "cada 1 ms. Las tres se detectaron."))
     A(P("La síntesis genérica con GHDL ([c]ghdl --synth[/c]) terminó sin latches. En el procesador quedaron un "
-        "multiplicador y un sumador de 50 bits, además de los contadores; cada RAM se infirió como memoria de 32 × 32."))
+        "multiplicador y un sumador de 50 bits, además de los contadores; cada RAM se infirió como memoria de 32 × 32. "
+        "La estimación con Yosys para Artix-7 está en la sección 11.4."))
 
-    # 15 ----------------------------------------------------------------------
-    A(P("15. Puntos para confirmar con el profesor", "h1"))
+    # 16 ----------------------------------------------------------------------
+    A(P("16. Puntos para confirmar con el profesor", "h1"))
     V(viñetas([
         "[b]Contadores.[/b] dira, i, j, k, cociente y los contadores del XS3 tienen su propio +1, como el i = i + 1 del "
         "ejemplo Sumax. Si deben pasar por el sumador/restador, cada incremento necesita un estado más.",
@@ -701,6 +570,11 @@ def contenido():
         "[b]op del sumador/restador.[/b] El algoritmo solo resta, así que op vale 1 en todos los estados que lo usan.",
         "[b]Multiplicador.[/b] Es combinacional ([c]*[/c] de std_logic_signed sobre std_logic_vector, no el tipo "
         "signed). Si lo quieren por sumas y desplazamientos, hay que cambiarlo.",
+        "[b]Unidad de control Mealy.[/b] El ASM tiene cajas de salida condicional, así que la ROM de salida recibe 8 "
+        "condiciones además del estado (8192 × 56). Si el profesor quiere una UC Moore, cada caja condicional pasa a "
+        "ser un estado y la ROM de salida queda de 2^n palabras.",
+        "[b]Registros sin compartir.[/b] El VHDL de alto nivel deja un registro por variable; el análisis de tiempos "
+        "de vida (sección 9.12) muestra que las temporales del lazo cabrían en 3 registros.",
     ]))
     A(P("Limitaciones", "h2"))
     V(viñetas([

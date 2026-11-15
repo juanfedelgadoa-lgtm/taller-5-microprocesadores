@@ -20,7 +20,8 @@
 --   restador 0 - valor (valor absoluto), sumador +3, comparador > 4.
 -- Display: AN7 = signo ('-' o apagado), AN6..AN0 = 7 digitos decimales.
 -- desborde = 1 si el valor tiene mas de 7 digitos.
--- Solo std_logic y std_logic_vector. Los estados son constantes.
+-- Solo std_logic y std_logic_vector, salvo el tipo de los estados del ASM
+-- (type estados_asm), declarado como en los ejemplos del curso.
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -50,14 +51,8 @@ architecture Behavioral of visualizador is
 -- x3  PASO 3: si digito(d) > 4, digito(d) = digito(d) + 3 (d = 0..9)
 -- x4  PASO 4: corrimiento a la izquierda (decimal y binario)
 -- x5  pasa el resultado al display
-constant x0 : STD_LOGIC_VECTOR (2 downto 0) := "000";
-constant x1 : STD_LOGIC_VECTOR (2 downto 0) := "001";
-constant x2 : STD_LOGIC_VECTOR (2 downto 0) := "010";
-constant x3 : STD_LOGIC_VECTOR (2 downto 0) := "011";
-constant x4 : STD_LOGIC_VECTOR (2 downto 0) := "100";
-constant x5 : STD_LOGIC_VECTOR (2 downto 0) := "101";
-
-signal xs : STD_LOGIC_VECTOR (2 downto 0);
+type estados_asm is (x0,x1,x2,x3,x4,x5);
+signal xs : estados_asm;
 
 constant CERO12 : STD_LOGIC_VECTOR (11 downto 0) := x"000";
 constant CERO32 : STD_LOGIC_VECTOR (31 downto 0) := x"00000000";

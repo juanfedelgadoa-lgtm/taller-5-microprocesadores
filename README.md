@@ -17,12 +17,34 @@ El diseño tiene cuatro bloques:
 `src/det_bareiss.vhd` es el tope para ISE: solo conecta los cuatro bloques
 (ISE lo necesita para asignar los pines con `src/nexys_a7.ucf`).
 
-Solo se usan `std_logic` y `std_logic_vector`; la única excepción es la RAM, que
-es el modelo del profesor sin cambios (32 × 32).
+Solo se usan `std_logic` y `std_logic_vector`. Las excepciones salen de los
+ejemplos del curso: la RAM es el modelo del profesor sin cambios (32 × 32) y los
+estados de cada ASM se declaran como en `ASM_Sumax` y `ASM_contador_unos`:
 
-**Documento completo** (pseudoalgoritmo, cajas negras, cajas grises, camino de
-datos, diagramas ASM con la verificación de sus reglas, palabra de control,
-simulación y código): [`doc/Taller5_ASM_Bareiss_XS3.pdf`](doc/Taller5_ASM_Bareiss_XS3.pdf).
+```vhdl
+type estados_asm is (s0,s1,s2, ... ,s18);
+signal st : estados_asm;
+```
+
+**Documento completo** (pseudoalgoritmo, cajas negras, diagramas ASM con la
+verificación de sus reglas, simulación y código):
+[`doc/Taller5_ASM_Bareiss_XS3.pdf`](doc/Taller5_ASM_Bareiss_XS3.pdf).
+
+Las secciones 9 a 11 del documento siguen el procedimiento de la guía del curso
+para pasar del ASM al hardware y dicen qué debe aparecer en la síntesis de ISE:
+
+- **Camino de datos**: 19 registros con sus MUX y cargas, multiplicador,
+  sumador/restador, ROM, RAM A y RAM B, banco de pivotes y 9 señales de estado.
+- **Palabra de control**: 55 bits (visualizador: 12).
+- **Unidad de control** (Mealy, 19 estados, 5 flip-flops): ROM de entrada
+  2048 × 5 y ROM de salida 8192 × 56, con el contenido de las dos ROM
+  (visualizador: 64 × 3 y 256 × 12).
+- **Comprobación**: `doc/fuentes/uc_cd.py` simula ese CD y esa UC ciclo a ciclo y
+  da los mismos resultados y ciclos que el VHDL en las 8 matrices
+  (`sim/resultado_modelo_uc_cd.txt`).
+- **Síntesis esperada**: 2 FSM (19 y 6 estados), 2 RAM distribuidas de 32 × 32,
+  1 multiplicador 25 × 25 (2 DSP48E1), unos 770 flip-flops y 1 000 LUT
+  (estimación con Yosys en `sim/estimacion_yosys.txt`; ISE dará valores parecidos).
 Las figuras sueltas están en [`doc/figuras/`](doc/figuras).
 
 ## Cajas negras
@@ -88,6 +110,8 @@ sintetizar y volver a programar la FPGA.
 | `sim/tb_det_bareiss.vhd` | Tarjeta completa: botón con rebotes y lectura del display |
 | `sim/probar_matrices.py` | Corre `tb_procesador` con las 8 matrices de prueba |
 | `sim/resultado_ghdl.txt` | Resultados (GHDL 4.1), pruebas de mutación y síntesis genérica |
+| `doc/fuentes/uc_cd.py`, `sim/resultado_modelo_uc_cd.txt` | Tablas de la UC (ROM de entrada y de salida) y modelo ciclo a ciclo del CD |
+| `sim/estimacion_yosys.txt` | Estimación de recursos en Artix-7 (referencia para comparar con ISE) |
 
 ```
 GHDL=ghdl python3 sim/probar_matrices.py           # matrices 0 a 6
@@ -96,3 +120,5 @@ GHDL=ghdl python3 sim/probar_matrices.py --todas   # incluye la 5x5 extrema (uno
 
 `python3 doc/fuentes/diagramas.py --verificar` revisa las reglas de los
 diagramas ASM y que sus transiciones coincidan con el VHDL.
+`python3 doc/fuentes/uc_cd.py` revisa las tablas de la unidad de control y simula
+el camino de datos con ellas (`--rapido` omite la matriz de 19 millones de ciclos).

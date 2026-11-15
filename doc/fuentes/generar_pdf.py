@@ -201,8 +201,13 @@ def traza_xs3(valor):
 
 if __name__ == "__main__":
     _, errores = diagramas.verificar()
+    import uc_cd
+    errores += uc_cd.verificar_filas(uc_cd.FILAS_P, uc_cd.CAMPOS_P, uc_cd.CAMPOS_COMB_P, uc_cd.ESTADOS_P)
+    errores += uc_cd.verificar_filas(uc_cd.FILAS_V, uc_cd.CAMPOS_V, uc_cd.CAMPOS_COMB_V, uc_cd.ESTADOS_V)
+    errores += uc_cd.comparar_con_asm(uc_cd.FILAS_P) + uc_cd.comparar_con_asm(uc_cd.FILAS_V)
+    errores += uc_cd.comprobar(rapido=True, salida=lambda t: None)[1]
     if errores:
-        sys.exit("Errores en los diagramas ASM:\n" + "\n".join(errores))
+        sys.exit("Errores en los diagramas ASM o en las tablas de la UC:\n" + "\n".join(errores))
     for nombre, f in diagramas.DIAGRAMAS.items():
         diagramas.render(nombre, f(), FIG)
     for dot in FIG.glob("*.dot"):

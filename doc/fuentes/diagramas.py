@@ -615,24 +615,24 @@ def _caja_gris(uc, cd, ent_uc, pc, est, sal_uc, ent_cd, sal_cd):
 
 def gris_proc():
     return _caja_gris(
-        "UNIDAD DE CONTROL\n\nregistro de estado st\n(s0 a s18, 5 bits)\nlógica de estado siguiente\ny de salidas",
+        "UNIDAD DE CONTROL\n\nregistro de estado st\n(s0 a s18, 5 bits)\nROM de entrada 2048 × 5\nROM de salida 8192 × 56",
         "CAMINO DE DATOS\n\nROM, RAM A, RAM B,\n3 decodificadores dir_ram,\nmultiplicador, sumador/restador,\n"
-        "banco de pivotes,\nregistros y multiplexores",
+        "banco de pivotes,\n19 registros y sus MUX",
         "clk\nrst\ninicio",
-        "PC: palabra de control (18 bits)\nwe, sel_data, sel_fra, sel_cra,\nsel_frb, sel_fw, sel_sra, sel_srb,\n"
-        "op, clr_banco, we_banco, sel_banco\n(+ cargas de los registros)",
+        "PC: palabra de control (55 bits)\n19 cargas (ld_x) + 16 bits de MUX de registros\n"
+        "+ 10 de RAM + 6 del sumador/restador\n+ 4 del banco de pivotes",
         "señales de estado (9)\nz_a, i_n, j_n, k1_n, t3_neg,\nres_neg, sq, piv_neg, signo",
         "final", "clk, rst\ndir_p (3)", "det (32)\npivote (32)")
 
 
 def gris_vis():
     return _caja_gris(
-        "UNIDAD DE CONTROL\n\nregistro de estado xs\n(x0 a x5, 3 bits)",
-        "CAMINO DE DATOS\n\nmux det/pivote, restador 0 − val,\nregistros bin, dec, cont, d,\n"
-        "sumador +3, comparador > 4,\nregistro disp y display",
+        "UNIDAD DE CONTROL\n\nregistro de estado xs\n(x0 a x5, 3 bits)\nROM de entrada 64 × 3\nROM de salida 256 × 12",
+        "CAMINO DE DATOS\n\nMUX det/pivote, restador 0 − val,\nregistros bin, dec, cont, d, disp,\n"
+        "sumador +3, comparadores,\ndisplay de 8 dígitos",
         "clk\nrst\nfinal",
-        "PC: palabra de control (8 bits)\nld_bin, clr_dec, ld_lsb, clr_d,\nld_dig, inc_d, desp, ld_disp",
-        "señales de estado (4)\nval_neg, cont_31, dig_mayor_4, d_9",
+        "PC: palabra de control (12 bits)\n6 cargas (ld_x)\n+ 6 bits de MUX",
+        "señales de estado (4)\nval_neg, cont_31, dig_4, d_9",
         "", "clk, rst, tick\ndir_p, det, pivote", "an (8), seg (7)\ndp, desborde")
 
 
@@ -759,6 +759,230 @@ def tope():
 """
 
 
+# ===========================================================================
+# CAMINO DE DATOS DETALLADO (cada registro con su MUX, su carga y su selector)
+# ===========================================================================
+ROJO = "#b00000"
+
+
+def _r(id_, nombre, bits, ld):
+    return (f'  {id_} [shape=box, style=filled, fillcolor="#ffffff", penwidth=1.4, '
+            f'label=<<b>{nombre}</b> ({bits})<br/><font color="{ROJO}" point-size="11">{ld}</font>>];')
+
+
+def _m(id_, entradas, sel):
+    filas = "<br/>".join(entradas)
+    return (f'  {id_} [shape=invtrapezium, style=filled, fillcolor="#f2f2f2", margin="0.25,0.04", '
+            f'label=<<font point-size="10">{filas}</font><br/><font color="{ROJO}" point-size="11">{sel}</font>>];')
+
+
+def _u(id_, texto, color=C_UF):
+    return f'  {id_} [shape=box, style="filled,rounded", fillcolor="{color}", label=<{texto}>];'
+
+
+def _c(id_, texto, senal):
+    return (f'  {id_} [shape=ellipse, label=<{texto}<br/><font color="{ROJO}" point-size="11">→ {senal}</font>>];')
+
+
+def _p(id_, texto):
+    return f'  {id_} [shape=plaintext, label=<{texto}>];'
+
+
+CAB_CD = f"""digraph G {{
+  graph [rankdir=TB, splines=spline, fontname="{FUENTE}", nodesep=0.3, ranksep=0.35, pad=0.2, newrank=true];
+  node [fontname="{FUENTE}", fontsize=12];
+  edge [fontname="{FUENTE}", fontsize=10, arrowsize=0.7];
+"""
+
+
+def _columna(L, ids, mux, reg, unidad=None, salida=None):
+    """Una columna del CD: MUX -> registro -> (unidad +1 que vuelve al MUX) -> salida."""
+    a = ids
+    if mux:
+        L.append(_m(a + "M", *mux))
+    L.append(_r(a + "R", *reg))
+    if mux:
+        L.append(f"  {a}M -> {a}R;")
+    if unidad:
+        L.append(_u(a + "U", unidad, "#ffffff"))
+        L.append(f"  {a}R -> {a}U; {a}U -> {a}M [constraint=false];")
+    if salida:
+        L.append(_p(a + "S", salida))
+        L.append(f"  {a}R -> {a}S;")
+
+
+def cd_indices():
+    L = [CAB_CD]
+    _columna(L, "dira", (["00: 0", "01: 1", "10: dira+1"], "sel_dira"), ("dira", 5, "ld_dira"), "+1",
+             "→ ROM (dirección)")
+    L.append(_p("aS", "a(2..0) de la ROM"))
+    _columna(L, "n", None, ("n", 3, "ld_n"), None, "→ comparadores, MUX de fila/columna")
+    L.append("  aS -> nR;")
+    _columna(L, "i", (["00: 1", "01: i+1", "10: k+1"], "sel_i"), ("i", 3, "ld_i"), "+1",
+             "→ i = n, MUX de fila")
+    _columna(L, "j", (["00: 1", "01: j+1", "10: k", "11: k+1"], "sel_j"), ("j", 3, "ld_j"), "+1",
+             "→ j = n, columna de la RAM")
+    _columna(L, "k", (["0: 1", "1: k+1"], "sel_k"), ("k", 3, "ld_k"), "+1 (k+1)",
+             "→ MUX de i, j y fila/columna;<br/>k+1 → MUX de i y j")
+    L += [_c("Cin", "i = n", "i_n"), _c("Cjn", "j = n", "j_n"), _c("Ckn", "k+1 = n", "k1_n"),
+          "  iR -> Cin; jR -> Cjn; kU -> Ckn;",
+          "  { rank=same; diraM; iM; jM; kM; }",
+          "  { rank=same; diraR; iR; jR; kR; nR; }"]
+    L.append("}")
+    return "\n".join(L)
+
+
+def cd_direcciones():
+    L = [CAB_CD]
+    L += [_p("ent", "i, j, k, n (registros)"),
+          _m("Mfra", ["00: i", "01: k", "10: n"], "sel_fra"), _m("Mcra", ["00: j", "01: k", "10: n"], "sel_cra"),
+          _m("Mfrb", ["0: i", "1: k"], "sel_frb"), _p("cj1", "j"),
+          _m("Mfw", ["0: i", "1: k"], "sel_fw"), _p("cj2", "j"),
+          _u("DA", "dir_ram (lectura A)<br/>5·(fila−1) + (col−1)", "#ffffff"),
+          _u("DB", "dir_ram (lectura B)", "#ffffff"), _u("DW", "dir_ram (escritura)", "#ffffff"),
+          _p("oA", "rd_add_a (5) → RAM A"), _p("oB", "rd_add_b (5) → RAM B"),
+          _p("oW", "wr_add (5) → RAM A y RAM B"),
+          """  ent -> Mfra; ent -> Mcra; ent -> Mfrb; ent -> Mfw;
+  Mfra -> DA [label="fila"]; Mcra -> DA [label="col"]; Mfrb -> DB [label="fila"]; cj1 -> DB [label="col"];
+  Mfw -> DW [label="fila"]; cj2 -> DW [label="col"]; DA -> oA; DB -> oB; DW -> oW;
+  { rank=same; Mfra; Mcra; Mfrb; cj1; Mfw; cj2; }
+}"""]
+    return "\n".join(L)
+
+
+def cd_memorias():
+    L = [CAB_CD]
+    L += [_p("a", "a (6) de la ROM"), _u("EXT", "extensión de signo<br/>6 → 32", "#ffffff"),
+          _p("coc", "cociente"), _p("res", "resultado(31..0)"),
+          _m("Mdata", ["000: a", "001: qa", "010: tmp", "011: cociente", "100: resultado"], "sel_data"),
+          _u("RA", "<b>RAM A</b><br/>32 × 32<br/>(modelo del profesor)", C_MEM),
+          _u("RB", "<b>RAM B</b><br/>32 × 32<br/>(modelo del profesor)", C_MEM),
+          _p("we", f'<font color="{ROJO}">we</font>, wr_add'), _p("rda", "rd_add_a"), _p("rdb", "rd_add_b"),
+          _c("Z", "qa = 0", "z_a"), _r("piv", "piv", 32, "ld_piv"), _r("tmp", "tmp", 32, "ld_tmp"),
+          _p("pn", f'piv(31) <font color="{ROJO}">→ piv_neg</font>'),
+          _m("Mnn", ["0: qa", "1: resultado"], "sel_nn"),
+          _m("Mdet", ["0: 0", "1: ±a(n,n)"], "sel_det"), _r("det", "det", 32, "ld_det"),
+          _m("Mban", ["0: dir k, dato piv", "1: dir n, dato ±a(n,n)"], "sel_banco"),
+          _u("BAN", f'<b>BANCO DE PIVOTES</b><br/>5 × 32<br/><font color="{ROJO}">clr_banco, we_banco</font>', C_MEM),
+          _p("dirp", "dir_p (switches)"), _p("odet", "<b>det</b> (32)"), _p("opiv", "<b>pivote</b> (32)"),
+          _p("qa_o", "qa → mul_a, mul_b, sr_b"), _p("qb_o", "qb → mul_b")]
+    L.append("""  a -> EXT -> Mdata; tmp -> Mdata; coc -> Mdata; res -> Mdata;
+  Mdata -> RA [label="data"]; Mdata -> RB [label="data"]; we -> RA; we -> RB; rda -> RA; rdb -> RB;
+  RA -> Z [label="qa"]; RA -> piv; RA -> Mdata; RA -> Mnn; RA -> qa_o; RB -> tmp [label="qb"]; RB -> qb_o;
+  piv -> pn; res -> Mnn; Mnn -> Mdet [label="±a(n,n)"]; Mdet -> det; det -> odet;
+  piv -> Mban; Mnn -> Mban; Mban -> BAN; dirp -> BAN [label="dir_r"]; BAN -> opiv;
+  { rank=same; a; coc; res; }
+  { rank=same; we; rda; rdb; }
+}""")
+    return "\n".join(L)
+
+
+def cd_aritmetica():
+    L = [CAB_CD]
+    # multiplicador
+    L += [_m("Mma", ["0: piv", "1: qa"], "sel_ma"), _m("Mmb", ["0: qa", "1: qb"], "sel_mb"),
+          _r("ma", "mul_a", 25, "ld_ma"), _r("mb", "mul_b", 25, "ld_mb"),
+          _u("MUL", "<b>MULTIPLICADOR</b><br/>25 × 25 → 50"),
+          _r("t1", "t1", 50, "ld_t1"), _r("t2", "t2", 50, "ld_t2"),
+          _p("t1S", "→ sr_a"), _p("t2S", "→ sr_b"),
+          "  Mma -> ma; Mmb -> mb; ma -> MUL; mb -> MUL; MUL -> t1 [label=\"producto\"]; MUL -> t2;",
+          "  t1 -> t1S; t2 -> t2S;"]
+    # sumador/restador
+    L += [_m("Msra", ["00: 0", "01: t1", "10: residuo"], "sel_sra"),
+          _m("Msrb", ["000: 0", "001: t2", "010: t3", "011: |p|", "100: cociente", "101: piv", "110: qa"],
+             "sel_srb"),
+          _u("SR", f'<b>SUMADOR/RESTADOR</b><br/>50 bits<br/><font color="{ROJO}">op</font>'),
+          _p("SRS", f'<b>resultado</b> (50) → t3, residuo, |p|,<br/>RAM (data), ±a(n,n);<br/>'
+                    f'resultado(49) <font color="{ROJO}">→ res_neg</font>'),
+          "  Msra -> SR [label=\"sr_a\"]; Msrb -> SR [label=\"sr_b\"]; SR -> SRS;"]
+    # registros que cargan el resultado
+    _columna(L, "t3", None, ("t3", 50, "ld_t3"), None,
+             f'→ sr_b, residuo;<br/>t3(49) <font color="{ROJO}">→ t3_neg</font>')
+    L += [_p("t3E", "resultado"), "  t3E -> t3R;"]
+    _columna(L, "res", (["0: t3", "1: resultado"], "sel_res"), ("residuo", 50, "ld_res"), None, "→ sr_a")
+    _columna(L, "pabs", (["00: 1", "01: piv", "10: resultado"], "sel_pabs"), ("|p|", 32, "ld_pabs"), None,
+             "→ sr_b")
+    _columna(L, "coc", (["0: 0", "1: cociente+1"], "sel_coc"), ("cociente", 32, "ld_coc"), "+1",
+             "→ sr_b, RAM (data)")
+    _columna(L, "p", (["0: 1", "1: piv"], "sel_p"), ("p", 32, "ld_p"), None, "p(31) → xor")
+    L += [_p("xE", "t3(49) xor p(31)"), _r("sqR", "sq", 1, "ld_sq"),
+          _p("sqS", f'<font color="{ROJO}">→ sq</font>'), "  xE -> sqR; sqR -> sqS;"]
+    _columna(L, "sg", (["0: 0", "1: not signo"], "sel_signo"), ("signo", 1, "ld_signo"), "not",
+             f'<font color="{ROJO}">→ signo</font>')
+    L += ["  { rank=same; Mma; Mmb; Msra; Msrb; }",
+          "  { rank=same; t3E; resM; pabsM; cocM; pM; xE; sgM; }",
+          "  t1S -> t3E [style=invis]; SRS -> t3E [style=invis];", "}"]
+    return "\n".join(L)
+
+
+def cd_vis():
+    L = [CAB_CD]
+    L += [_p("det", "det (32)"), _p("pivote", "pivote (32)"), _p("dirp", "dir_p"),
+          _m("Mval", ["det si dir_p = 0", "pivote si no"], "(dir_p)"),
+          _p("vn", f'val(31) <font color="{ROJO}">→ val_neg</font>'),
+          _u("NEG", "restador<br/>0 − val"),
+          _m("Mbin", ["00: val", "01: 0 − val", "10: bin &lt;&lt; 1"], "sel_bin"), _r("bin", "bin", 32, "ld_bin"),
+          _r("neg", "neg", 1, "ld_neg"),
+          _m("Mdec", ["00: 0", "01: dec(39..1) &amp; bin(31)", "10: dígito(d) ← dígito(d)+3", "11: dec &lt;&lt; 1"],
+             "sel_dec"),
+          _r("dec", "dec", 40, "ld_dec"),
+          _m("Mdig", ["dígito(d)"], "(d)"), _c("C4", "&gt; 4", "dig_4"), _u("S3", "sumador<br/>+3"),
+          _m("Mcont", ["0: 0", "1: cont+1"], "sel_cont"), _r("cont", "cont", 5, "ld_cont"),
+          _u("Icont", "+1", "#ffffff"), _c("C31", "cont = 31", "cont_31"),
+          _m("Md", ["0: 0", "1: d+1"], "sel_d"), _r("d", "d", 4, "ld_d"), _u("Id", "+1", "#ffffff"),
+          _c("C9", "d = 9", "d_9"),
+          _r("disp", "disp, disp_neg", 41, "ld_disp"),
+          _p("tick", "tick (1 ms)"), _u("DS", "dsel (3)<br/>contador", "#ffffff"),
+          _m("Mcar", ["7 dígitos o signo"], "(dsel)"), _u("SEG", "decodificador<br/>7 segmentos", "#ffffff"),
+          _u("AN", "decodificador<br/>de ánodos", "#ffffff"), _c("DES", "dígitos 7..9 ≠ 0", "desborde"),
+          _p("oseg", "seg, dp"), _p("oan", "an")]
+    L.append("""  det -> Mval; pivote -> Mval; dirp -> Mval; Mval -> vn; Mval -> NEG; Mval -> Mbin; NEG -> Mbin;
+  Mbin -> bin; bin -> Mbin [label="<<1", constraint=false]; vn -> neg;
+  bin -> Mdec [label="bin(31)"]; Mdec -> dec; dec -> Mdig; d -> Mdig; Mdig -> C4; Mdig -> S3; S3 -> Mdec;
+  cont -> Icont; Icont -> Mcont; Mcont -> cont; cont -> C31;
+  d -> Id; Id -> Md; Md -> d; d -> C9;
+  dec -> disp; neg -> disp; tick -> DS; disp -> Mcar; DS -> Mcar; Mcar -> SEG -> oseg; DS -> AN -> oan;
+  disp -> DES;
+  { rank=same; det; pivote; dirp; }
+}""")
+    return "\n".join(L)
+
+
+# ===========================================================================
+# UNIDAD DE CONTROL CANONICA (ROM de entrada, registro de estado, ROM de salida)
+# ===========================================================================
+def _uc(ent_sig, ent_pc, n, rom_e, rom_s, salidas):
+    return f"""digraph G {{
+  graph [rankdir=LR, fontname="{FUENTE}", nodesep=0.5, ranksep=0.7, pad=0.2];
+  node [fontname="{FUENTE}", fontsize=12];
+  edge [fontname="{FUENTE}", fontsize=11, arrowsize=0.8];
+  e1 [shape=plaintext, label="{esc(ent_sig)}"];
+  RE [shape=box, style=filled, fillcolor="{C_MEM}", width=1.8, height=1.6, label="ROM DE ENTRADA\\n(estado siguiente)\\n\\n{rom_e}"];
+  REG [shape=box, style=filled, fillcolor="#ffffff", width=1.4, height=1.6, label="REGISTRO\\nDE ESTADO\\n\\n{n} flip-flops D\\n(clk, rst → s0)"];
+  RS [shape=box, style=filled, fillcolor="{C_MEM}", width=1.8, height=1.6, label="ROM DE SALIDA\\n(palabra de control)\\n\\n{rom_s}"];
+  e2 [shape=plaintext, label="{esc(ent_pc)}"];
+  s1 [shape=plaintext, label="{esc(salidas)}"];
+  e1 -> RE; RE -> REG [label="D ({n})"]; REG -> RS [label="Q ({n})"];
+  REG -> RE [label="Q ({n}) realimentación", constraint=false, color="#555555", fontcolor="#555555"];
+  e2 -> RS; RS -> s1;
+  {{ rank=same; e2; RS; }}
+}}
+"""
+
+
+def uc_proc():
+    return _uc("inicio\nz_a, i_n, j_n,\nk1_n, res_neg\n(6 entradas)",
+               "z_a, i_n, j_n, t3_neg,\nres_neg, sq, piv_neg, signo\n(8 condiciones)",
+               5, "2^(5+6) × 5\\n= 2048 × 5", "2^(5+8) × 56\\n= 8192 × 56", "PC (55)\nfinal")
+
+
+def uc_vis():
+    return _uc("final\ncont_31, d_9\n(3 entradas)", "final, val_neg,\ncont_31, dig_4, d_9\n(5 condiciones)",
+               3, "2^(3+3) × 3\\n= 64 × 3", "2^(3+5) × 12\\n= 256 × 12", "PC (12)")
+
+
+
+
 def render(nombre, dot_txt, salida, dpi=170):
     salida.mkdir(parents=True, exist_ok=True)
     dot_file = salida / f"{nombre}.dot"
@@ -778,6 +1002,13 @@ DIAGRAMAS = {
     "camino_datos_vis": camino_datos_vis,
     "tope": tope,
     "vista_general": vista_general,
+    "cd_indices": cd_indices,
+    "cd_direcciones": cd_direcciones,
+    "cd_memorias": cd_memorias,
+    "cd_aritmetica": cd_aritmetica,
+    "cd_vis": cd_vis,
+    "uc_proc": uc_proc,
+    "uc_vis": uc_vis,
 }
 for _n, _f in CONSTRUCTORES.items():
     DIAGRAMAS[_n] = (lambda f: (lambda: f().dot()))(_f)
