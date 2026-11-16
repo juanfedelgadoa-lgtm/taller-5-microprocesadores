@@ -36,34 +36,39 @@ type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13);
 signal st : estados_asm;
 ```
 
-**Documento completo** (pseudoalgoritmo, cajas negras, diagramas ASM con la
-verificación de sus reglas, simulación y código):
-[`doc/Taller5_ASM_Bareiss_XS3.pdf`](doc/Taller5_ASM_Bareiss_XS3.pdf).
+## Informe
 
-> **Pendiente:** el PDF, las figuras de `doc/figuras/` y las tablas de la UC y
-> el CD (`doc/fuentes/uc_cd.py`, `sim/resultado_modelo_uc_cd.txt`) todavía
-> describen una versión anterior del procesador (con el multiplicador y el
-> sumador/restador como entidades). El VHDL de `src/`, `sim/resultado_ghdl.txt`
-> y `sim/estimacion_yosys.txt` ya son de la versión actual de 14 estados. El
-> documento se actualiza cuando se confirme este ASM.
+**Informe de laboratorio:** [`informe/Informe_Taller5_Bareiss.pdf`](informe/Informe_Taller5_Bareiss.pdf)
+(y la versión editable [`informe/Informe_Taller5_Bareiss.docx`](informe/Informe_Taller5_Bareiss.docx)).
+Sigue el procedimiento del curso: análisis del problema, caja negra,
+pseudoalgoritmo con el hardware disponible, diagrama ASM, señales de la UC y del
+CD, camino de datos dibujado como circuito, caja gris, unidad de control (ROM de
+entrada 2048 × 4 y ROM de salida 8192 × 41), visualizador XS3, VHDL, resultados de
+ISE en la XC7A100T, simulación y conclusiones.
 
-Las secciones 9 a 11 del documento siguen el procedimiento de la guía del curso
-para pasar del ASM al hardware y dicen qué debe aparecer en la síntesis de ISE:
+- Figuras en draw.io: `informe/figuras/*.drawio` (se abren y se editan en
+  [app.diagrams.net](https://app.diagrams.net)); al lado está el PNG de cada una.
+- Faltan las capturas del esquema RTL de ISE: el informe tiene tres recuadros
+  grises para pegarlas (Figuras 18 a 20).
+- Las ondas de la sección 13 se simularon con GHDL y se dibujaron con el formato
+  de ISim. El testbench es `sim/tb_informe.vhd`; en ISim se corre 45 µs.
 
-- **Camino de datos**: 18 registros con sus MUX y cargas, banco de pivotes b1 a b4,
-  multiplicador, sumador/restador, ROM, RAM A y RAM B, y 8 señales de estado.
-- **Palabra de control**: 43 bits (visualizador: 12).
-- **Unidad de control** (Mealy, 14 estados, 4 flip-flops): ROM de entrada
-  2048 × 4 y ROM de salida 8192 × 44, con el contenido de las dos ROM
-  (visualizador: 64 × 3 y 256 × 12).
-- **Comprobación**: `doc/fuentes/uc_cd.py` simula ese CD y esa UC ciclo a ciclo y
-  da los mismos resultados y ciclos que el VHDL en las 8 matrices
-  (`sim/resultado_modelo_uc_cd.txt`).
-- **Síntesis esperada**: 2 FSM (14 y 6 estados), 2 RAM distribuidas de 32 × 32,
-  1 multiplicador 25 × 25 (2 DSP48E1), 1 restador de 50 bits en el procesador,
-  unos 720 flip-flops y 950 LUT
-  (estimación con Yosys en `sim/estimacion_yosys.txt`; ISE dará valores parecidos).
-Las figuras sueltas están en [`doc/figuras/`](doc/figuras).
+Cómo se regenera (las fuentes están en `informe/fuentes/`):
+
+| Script | Hace |
+|---|---|
+| `uc_cd.py` | Campos de la PC, registros, tablas de la UC y modelo ciclo a ciclo del CD (`--rapido` omite la matriz 7) |
+| `generar_figuras.py` | Revisa las reglas del ASM contra `uc_cd.py` y escribe los `.drawio` (y los PNG con el visor de draw.io) |
+| `ondas.py` | Simula `sim/tb_informe.vhd` con GHDL para las matrices 1, 2 y 3 y dibuja `sim_*.png` |
+| `generar_informe.py` | Arma el `.docx`; el PDF se saca con `soffice --headless --convert-to pdf` |
+
+Resultados de ISE 14.7 (XC7A100T-1CSG324): 702 flip-flops, 878 LUT, 2 DSP48E1,
+1 multiplicador 25 × 25, 1 restador de 50 bits, FSM de 14 estados y 26
+transiciones; restricción de 10 ns cumplida con 1,206 ns de holgura.
+
+> La carpeta `doc/` es de una versión anterior del procesador (con el
+> multiplicador y el sumador/restador como entidades) y ya no corresponde al
+> VHDL de `src/`. Se puede borrar; el documento vigente es el de `informe/`.
 
 ## Cajas negras
 
@@ -128,9 +133,10 @@ sintetizar y volver a programar la FPGA.
 | `sim/tb_procesador.vhd`, `sim/pkg_prueba.vhd`, `sim/rom_prueba.vhd` | Procesador: det y todos los pivotes contra un modelo de Bareiss (lee la matriz de `sim/rom_prueba.vhd`) |
 | `sim/tb_visualizador.vhd` | XS3 y display con valores positivos, negativos, de 7 dígitos y con desborde |
 | `sim/tb_det_bareiss.vhd` | Tarjeta completa: botón con rebotes y lectura del display |
+| `sim/tb_informe.vhd` | Testbench sencillo (sin comparaciones) para las figuras de simulación del informe |
 | `sim/probar_matrices.py` | Corre `tb_procesador` con las 8 matrices de prueba |
 | `sim/resultado_ghdl.txt` | Resultados (GHDL 4.1), pruebas de mutación y síntesis genérica |
-| `doc/fuentes/uc_cd.py`, `sim/resultado_modelo_uc_cd.txt` | Tablas de la UC (ROM de entrada y de salida) y modelo ciclo a ciclo del CD |
+| `informe/fuentes/uc_cd.py` | Tablas de la UC (ROM de entrada y de salida) y modelo ciclo a ciclo del CD |
 | `sim/estimacion_yosys.txt` | Estimación de recursos en Artix-7 (referencia para comparar con ISE) |
 
 ```
@@ -138,7 +144,7 @@ GHDL=ghdl python3 sim/probar_matrices.py           # matrices 0 a 6
 GHDL=ghdl python3 sim/probar_matrices.py --todas   # incluye la 5x5 extrema (unos 15 minutos)
 ```
 
-`python3 doc/fuentes/diagramas.py --verificar` revisa las reglas de los
-diagramas ASM y que sus transiciones coincidan con el VHDL.
-`python3 doc/fuentes/uc_cd.py` revisa las tablas de la unidad de control y simula
+`python3 informe/fuentes/generar_figuras.py --solo-xml` revisa las reglas de los
+diagramas ASM y que sus transiciones coincidan con las tablas de la UC.
+`python3 informe/fuentes/uc_cd.py` revisa las tablas de la unidad de control y simula
 el camino de datos con ellas (`--rapido` omite la matriz de 19 millones de ciclos).
