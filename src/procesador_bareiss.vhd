@@ -174,13 +174,14 @@ end Behavioral;
 -- Unidades funcionales (una instancia de cada entidad):
 --   U_MUL : multiplicador     producto  = mul_a * mul_b
 --   U_SR  : sumador_restador  resultado = sr_a + sr_b  (op = 0)  o  sr_a - sr_b  (op = 1)
--- Los estados cargan las entradas (mul_a, mul_b, sr_a, sr_b, op) y en el estado
+-- Los estados cargan las entradas (mul_a, mul_b, sr_a, sr_b) y en el estado
 -- siguiente toman el resultado.
 --
 -- Memorias: la ROM tiene la matriz; las RAM A y B guardan la matriz de trabajo.
 -- La RAM A lee a(i,j), la RAM B lee a(k,j) y se escribe en a(i,j) (en s5, en
--- a(k,j)). La division por restas sucesivas es exacta en Bareiss: el residuo
--- llega a 0.
+-- a(k,j)).
+-- Division por restas sucesivas: |t1 - t2| / |p|. El sumador/restador solo
+-- resta (op = 1); el signo del cociente (sq) se aplica al escribir.
 -- Los pivotes 1 a n-1 quedan en el banco b1..b4; el pivote n es el det.
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -242,7 +243,8 @@ signal qa, qb : STD_LOGIC_VECTOR (31 downto 0);   -- qa = a(i,j), qb = a(k,j)
 -- Registros del algoritmo
 signal n, i, j, k : STD_LOGIC_VECTOR (2 downto 0);
 signal piv    : STD_LOGIC_VECTOR (31 downto 0);   -- pivote a(k,k)
-signal p      : STD_LOGIC_VECTOR (31 downto 0);   -- pivote anterior (divisor)
+signal p      : STD_LOGIC_VECTOR (31 downto 0);   -- pivote anterior
+signal pabs   : STD_LOGIC_VECTOR (31 downto 0);   -- |p| (divisor)
 signal aik    : STD_LOGIC_VECTOR (31 downto 0);   -- a(i,k) de la fila i
 signal tmp    : STD_LOGIC_VECTOR (31 downto 0);   -- intercambio de filas
 signal signo  : STD_LOGIC;                        -- 1 = numero impar de intercambios
@@ -255,7 +257,7 @@ signal producto     : STD_LOGIC_VECTOR (49 downto 0);
 
 -- Sumador/restador y division
 signal sr_a, sr_b : STD_LOGIC_VECTOR (49 downto 0);   -- en la division, sr_a es el residuo
-signal op         : STD_LOGIC;                        -- 0 suma, 1 resta
+signal op         : STD_LOGIC;                        -- 1 = resta (el algoritmo solo resta)
 signal resultado  : STD_LOGIC_VECTOR (49 downto 0);
 signal cociente   : STD_LOGIC_VECTOR (31 downto 0);
 signal sq         : STD_LOGIC;                        -- signo del cociente
@@ -290,6 +292,8 @@ data   <= SXT(a, 32)             when st = s1 else     -- copia de la ROM
 U_MUL : multiplicador    port map (a => mul_a, b => mul_b, p => producto);
 U_SR  : sumador_restador port map (a => sr_a, b => sr_b, op => op, s => resultado);
 
+op <= '1';                                          -- division por restas sucesivas
+
 ------------------------------------------------------------------------------
 -- Salidas
 ------------------------------------------------------------------------------
@@ -312,13 +316,13 @@ if rst = '1' then
     st <= s0;
     dira <= (others => '0');
     n <= "000";  i <= "000";  j <= "000";  k <= "000";
-    piv <= (others => '0');  p <= (others => '0');
+    piv <= (others => '0');  p <= (others => '0');  pabs <= (others => '0');
     aik <= (others => '0');  tmp <= (others => '0');  signo <= '0';
     b1 <= (others => '0');  b2 <= (others => '0');
     b3 <= (others => '0');  b4 <= (others => '0');
     deter <= (others => '0');
     mul_a <= (others => '0');  mul_b <= (others => '0');
-    sr_a <= (others => '0');  sr_b <= (others => '0');  op <= '1';
+    sr_a <= (others => '0');  sr_b <= (others => '0');
     cociente <= (others => '0');  sq <= '0';
 
 elsif clk'event and clk = '1' then
@@ -353,9 +357,14 @@ elsif clk'event and clk = '1' then
                 st    <= s2;
             end if;
 
-        when s2 =>                          -- piv = a(k,k) (RAM B con j = k)
+        when s2 =>                          -- piv = a(k,k) (RAM B con j = k) ; |p|
             piv <= qb;
             i   <= k + 1;
+            if p(31) = '1' then             -- p < 0: |p| = 0 - p (preparado en s12)
+                pabs <= resultado(31 downto 0);
+            else
+                pabs <= p;
+            end if;
             if qb = 0 then
                 st <= s3;                   -- pivote cero: busca otra fila
             else
@@ -409,27 +418,32 @@ elsif clk'event and clk = '1' then
             mul_b <= qb(24 downto 0);
             st <= s9;
 
-        when s9 =>                          -- sr_b = a(i,k) * a(k,j) ; resta
-            sr_b <= producto;
-            op   <= '1';
+        when s9 =>                          -- sr_b = a(i,k) * a(k,j) ; signo del cociente
+            sr_b     <= producto;
+            sq       <= p(31);
+            cociente <= (others => '0');
             st <= s10;
 
-        when s10 =>                         -- residuo = t1 - t2 ; divisor = p
-            sr_a     <= resultado;
-            sr_b     <= SXT(p, 50);
-            sq       <= resultado(49) xor p(31);
-            op       <= not (resultado(49) xor p(31));   -- mismo signo: resta ; distinto: suma
-            cociente <= (others => '0');
-            st <= s11;
+        when s10 =>                         -- residuo = |t1 - t2| ; divisor = |p|
+            if resultado(49) = '1' then     -- t1 < t2: se resta al reves (t2 - t1)
+                sr_a <= sr_b;
+                sr_b <= sr_a;
+                sq   <= not sq;
+                st <= s10;
+            else
+                sr_a <= resultado;
+                sr_b <= SXT(pabs, 50);
+                st <= s11;
+            end if;
 
-        when s11 =>                         -- division: residuo = residuo -/+ p hasta llegar a 0
-            if sr_a /= 0 then
+        when s11 =>                         -- division por restas sucesivas: residuo - |p|
+            if resultado(49) = '0' then     -- residuo - |p| >= 0
                 sr_a     <= resultado;
                 cociente <= cociente + 1;
                 st <= s11;
             else
-                sr_b <= SXT(cociente, 50);  -- prepara 0 - cociente (sr_a ya es 0)
-                op   <= '1';
+                sr_a <= (others => '0');    -- prepara 0 - cociente
+                sr_b <= SXT(cociente, 50);
                 st <= s12;
             end if;
 
@@ -442,10 +456,12 @@ elsif clk'event and clk = '1' then
                 j  <= k;
                 st <= s6;
             elsif k + 1 /= n then
-                p  <= piv;
-                k  <= k + 1;
-                j  <= k + 1;
-                st <= s2;
+                p    <= piv;
+                k    <= k + 1;
+                j    <= k + 1;
+                sr_a <= (others => '0');    -- prepara 0 - piv para |p| en s2
+                sr_b <= SXT(piv, 50);
+                st   <= s2;
             else                            -- ultimo paso: det = +/- a(n,n)
                 if (sq xor signo) = '1' then
                     deter <= resultado(31 downto 0);

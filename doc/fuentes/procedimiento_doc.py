@@ -135,10 +135,10 @@ def rom_salida(filas, campos, senales, grupos_campos, finales):
 # ---------------------------------------------------------------------------
 GRUPOS_P = [
     ("Cargas de los registros (ld_x)", [c[0] for c in U.CAMPOS_P if c[2] == "ld"],
-     ["dira", "n", "i", "j", "k", "piv", "p", "aik", "tmp", "sg", "det", "ma", "mb", "sra", "srb", "op",
+     ["dira", "n", "i", "j", "k", "piv", "p", "|p|", "aik", "tmp", "sg", "det", "ma", "mb", "sra", "srb",
       "coc", "sq"]),
     ("Selectores de los MUX de los registros (sel_x)", [c[0] for c in U.CAMPOS_P if c[2] == "sel"],
-     ["dira", "i", "j", "k", "p", "sg", "det", "ma", "mb", "sra", "srb", "op", "coc"]),
+     ["dira", "i", "j", "k", "p", "|p|", "sg", "det", "ma", "mb", "sra", "srb", "coc", "sq"]),
     ("RAM y banco de pivotes", [c[0] for c in U.CAMPOS_P if c[2] in ("ram", "banco")],
      ["we", "sel_w", "sel_data", "we_banco"]),
 ]
@@ -149,7 +149,8 @@ TRANSFERENCIAS = [
     ("s0", "n ← a; dira ← 1; i ← 1; j ← 1 (si inicio = 1)", "", "", "lee ROM(00h)"),
     ("s1", "RAM(i,j) ← a; dira ← dira + 1; i ← i + 1, o i ← 1 y j ← j + 1; al final k ← 1, j ← 1, p ← 1, "
            "signo ← 0", "", "", "escribe (i,j)"),
-    ("s2", "piv ← qb; i ← k + 1; banco(k) ← qb (si qb ≠ 0)", "", "", "lee B(k,k)"),
+    ("s2", "piv ← qb; i ← k + 1; |p| ← p (p ≥ 0) o |p| ← resultado (p < 0); banco(k) ← qb (si qb ≠ 0)", "",
+     "0 − p (cargado en s12)", "lee B(k,k)"),
     ("s3", "signo ← not signo (qa ≠ 0); det ← 0 (qa = 0, i = n); i ← i + 1 (qa = 0, i ≠ n)", "", "",
      "lee A(i,k)"),
     ("s4", "RAM(i,j) ← qb; tmp ← qa", "", "", "lee A(i,j) y B(k,j); escribe (i,j)"),
@@ -157,12 +158,13 @@ TRANSFERENCIAS = [
     ("s6", "aik ← qa; j ← k + 1", "", "", "lee A(i,k)"),
     ("s7", "mul_a ← piv; mul_b ← qa", "", "", "lee A(i,j)"),
     ("s8", "sr_a ← producto; mul_a ← aik; mul_b ← qb", "piv · a(i,j)", "", "lee B(k,j)"),
-    ("s9", "sr_b ← producto; op ← 1", "a(i,k) · a(k,j)", "", ""),
-    ("s10", "sr_a ← resultado; sr_b ← p; sq; op; cociente ← 0", "", "t1 − t2", ""),
-    ("s11", "sr_a ← resultado y cociente ← cociente + 1 (residuo ≠ 0); sr_b ← cociente y op ← 1 (residuo = 0)",
-     "", "residuo ∓ p", ""),
-    ("s12", "RAM(i,j) ← ±cociente; avanza j, i o k; en el último paso det ← ±cociente", "", "0 − cociente",
-     "escribe (i,j)"),
+    ("s9", "sr_b ← producto; sq ← p(31); cociente ← 0", "a(i,k) · a(k,j)", "", ""),
+    ("s10", "t1 < t2: sr_a ← sr_b, sr_b ← sr_a, sq ← not sq (vuelve a s10); t1 ≥ t2: sr_a ← resultado, "
+            "sr_b ← |p|", "", "t1 − t2 (o t2 − t1)", ""),
+    ("s11", "residuo − |p| ≥ 0: sr_a ← resultado, cociente ← cociente + 1; si no: sr_a ← 0, sr_b ← cociente",
+     "", "residuo − |p|", ""),
+    ("s12", "RAM(i,j) ← ±cociente; avanza j, i o k; al cambiar de paso p ← piv, sr_a ← 0, sr_b ← piv; en el "
+            "último paso det ← ±cociente", "", "0 − cociente", "escribe (i,j)"),
     ("s13", "final = 1; dira ← 1, i ← 1, j ← 1 (si inicio = 1)", "", "", ""),
 ]
 
@@ -207,7 +209,7 @@ def seccion_procesador(h, fig):
         ["Grupo", "Señales"],
         ["Puertos de entrada", "clk, rst, inicio (a la UC); dir_p (3, al CD)"],
         ["Puertos de salida", "final (de la UC); det (32) y pivote (32) (del CD)"],
-        ["Señales de estado (CD → UC)", "z_b, z_a, i_n, j_n, k1_n, z_res, sqs (7 bits)"],
+        ["Señales de estado (CD → UC)", "z_b, z_a, i_n, j_n, k1_n, p_neg, neg, sqs (8 bits)"],
         ["Señales de control (UC → CD)", f"Palabra de control de {U.BITS_PC_P} bits (sección 9.8)"],
         ["Señales internas de la UC", "st (estado presente, 4 bits) y el estado siguiente"],
         ["Señales internas del CD",
@@ -219,8 +221,9 @@ def seccion_procesador(h, fig):
     A(P("9.2 Transferencias por estado y uso de las unidades", "h2"))
     A(P("Cada estado del ASM se escribe como transferencias entre registros. La tabla confirma la restricción de "
         "recursos: en ningún estado se usa más de una vez el multiplicador ni el sumador/restador. Las dos unidades "
-        "toman sus entradas de registros (mul_a, mul_b, sr_a, sr_b, op): un estado carga las entradas y el siguiente "
-        "guarda el resultado."))
+        "toman sus entradas de registros (mul_a, mul_b, sr_a, sr_b): un estado carga las entradas y el siguiente "
+        "guarda el resultado. El sumador/restador siempre resta (op = 1), porque la división es por restas "
+        "sucesivas y |p| y −cociente se calculan como 0 − p y 0 − cociente."))
     A(tabla([["Estado", "Transferencias", "Multiplicador", "Sumador/ restador", "RAM"]]
             + [list(t) for t in TRANSFERENCIAS], [0.6, 3.0, 1.05, 1.05, 1.2]))
 
@@ -241,8 +244,9 @@ def seccion_procesador(h, fig):
     A(tabla(filas, [1.25, 0.5, 0.6, 1.2, 3.35]))
     A(Spacer(1, 4))
     A(P(f"Total: {len(U.REGISTROS_P)} registros y {total} bits, más el banco (128 bits) y los 4 bits del registro de "
-        "estado. sr_a y sr_b se reutilizan: sr_a guarda t1 y después el residuo; sr_b guarda t2, después p y al final "
-        "el cociente que se va a negar (sección 9.12)."))
+        "estado. sr_a y sr_b se reutilizan: sr_a guarda t1 (o t2 si se intercambian), después el residuo y al final 0; "
+        "sr_b guarda t2 (o t1), después |p|, el cociente que se va a negar y, al cambiar de paso, piv para calcular "
+        "|p| (sección 9.12)."))
     A(P("Los anchos salen de la desigualdad de Hadamard: cada valor de la RAM es el determinante de una submatriz de "
         "A (identidad de Sylvester) y |det| ≤ (32·√m)[sup]m[/sup] para una submatriz m×m."))
     V(viñetas([
@@ -256,7 +260,8 @@ def seccion_procesador(h, fig):
     A(tabla([
         ["Bloque", "Entrada", "Fuente (estados)"],
         ["Multiplicador 25 × 25 → 50 (entidad multiplicador, U_MUL)", "a, b", "Registros mul_a y mul_b (cable directo)"],
-        ["Sumador/restador 50 bits (entidad sumador_restador, U_SR)", "a, b, op", "Registros sr_a, sr_b y op (cable directo)"],
+        ["Sumador/restador 50 bits (entidad sumador_restador, U_SR)", "a, b, op",
+         "Registros sr_a y sr_b (cable directo); op = 1 fijo (solo resta)"],
         ["ROM 32 × 6", "dira", "Registro dira (cable directo)"],
         ["RAM A (32 × 32)", "dirección de lectura", "dir_ij: siempre lee a(i,j) → qa"],
         ["RAM B (32 × 32)", "dirección de lectura", "dir_kj: siempre lee a(k,j) → qb"],
@@ -277,7 +282,7 @@ def seccion_procesador(h, fig):
         "estado de 1 bit hacia la UC. inicio es una entrada externa de la UC."))
     A(tabla([["Señal", "Pregunta del ASM", "Bloque que la genera", "Estados"]] + [
         [s_, q, b, e] for (s_, q, b), e in zip(U.SENALES_P, [
-            "s0, s13", "s2", "s3", "s1, s3, s12", "s1, s5, s12", "s12", "s11", "s12"])],
+            "s0, s13", "s2", "s3", "s1, s3, s12", "s1, s5, s12", "s12", "s2", "s10, s11", "s12"])],
         [0.75, 1.4, 3.6, 1.15]))
 
     # 9.6 / 9.7 Camino de datos ----------------------------------------------
@@ -307,7 +312,7 @@ def seccion_procesador(h, fig):
 
     # 9.9 Caja gris -----------------------------------------------------------
     A(P("9.9 Caja gris", "h2"))
-    A(fig("gris_proc", f"Caja gris del procesador: PC de {U.BITS_PC_P} bits y 7 señales de estado.", max_alto=2.6))
+    A(fig("gris_proc", f"Caja gris del procesador: PC de {U.BITS_PC_P} bits y 8 señales de estado.", max_alto=2.6))
 
     # 9.10 Unidad de control ----------------------------------------------------
     A(PageBreak())
@@ -329,9 +334,10 @@ def seccion_procesador(h, fig):
          f"{2 ** (4 + len(o_pc))} × {U.BITS_PC_P + 1}"],
     ], [1.9, 3.2, 1.8]))
     A(Spacer(1, 4))
-    A(P("sqs (sq ⊕ signo) solo elige si el determinante es cociente o 0 − cociente en el último paso, así que solo "
-        "entra a la ROM de salida, como α en la versión Mealy del contador de unos. Las demás señales cambian el "
-        "estado siguiente y también la palabra de control."))
+    A(P("Dos señales solo entran a la ROM de salida, como α en la versión Mealy del contador de unos: p_neg elige en "
+        "s2 si |p| es p o 0 − p, y sqs (sq ⊕ signo) elige en el último paso si el determinante es cociente o "
+        "0 − cociente. Ninguna de las dos cambia el estado siguiente. Las demás señales cambian el estado siguiente "
+        "y también la palabra de control."))
     A(fig("uc_proc", "Unidad de control canónica del procesador (ROM de entrada, registro, ROM de salida).",
           max_alto=2.3))
     A(P("Códigos de estado: el orden de la declaración [c]type estados_asm is (s0, s1, …, s13)[/c], en binario: "
@@ -372,14 +378,14 @@ def seccion_procesador(h, fig):
     # 9.12 Tiempos de vida --------------------------------------------------
     A(P("9.12 Tiempos de vida en el lazo interno", "h2"))
     A(P("La guía minimiza registros con la tabla de tiempos de vida y el algoritmo left-edge. Para las variables "
-        "temporales del lazo s7 a s12 (i, j, k, piv, p y aik están vivas en todo el lazo):"))
-    vida = {"t1": (9, 10), "t2": (10, 10), "residuo": (11, 12), "p (copia)": (11, 11), "−cociente": (12, 12),
-            "mul_a": (8, 9), "mul_b": (8, 9), "cociente": (11, 12), "sq": (11, 12)}
-    escrita = {"t1": "s8", "t2": "s9", "residuo": "s10, s11", "p (copia)": "s10", "−cociente": "s11",
-               "mul_a": "s7, s8", "mul_b": "s7, s8", "cociente": "s10, s11", "sq": "s10"}
-    leida = {"t1": "s10", "t2": "s10", "residuo": "s11, s12", "p (copia)": "s11", "−cociente": "s12",
-             "mul_a": "s8, s9", "mul_b": "s8, s9", "cociente": "s11, s12", "sq": "s12"}
-    reg = {"t1": "sr_a", "t2": "sr_b", "residuo": "sr_a", "p (copia)": "sr_b", "−cociente": "sr_b",
+        "temporales del lazo s7 a s12 (i, j, k, piv, p, |p| y aik están vivas en todo el lazo):"))
+    vida = {"t1": (9, 10), "t2": (10, 10), "residuo": (11, 11), "|p| (copia)": (11, 11), "0 y cociente": (12, 12),
+            "mul_a": (8, 9), "mul_b": (8, 9), "cociente": (10, 12), "sq": (10, 12)}
+    escrita = {"t1": "s8", "t2": "s9", "residuo": "s10, s11", "|p| (copia)": "s10", "0 y cociente": "s11",
+               "mul_a": "s7, s8", "mul_b": "s7, s8", "cociente": "s9, s11", "sq": "s9, s10"}
+    leida = {"t1": "s10", "t2": "s10", "residuo": "s11", "|p| (copia)": "s11", "0 y cociente": "s12",
+             "mul_a": "s8, s9", "mul_b": "s8, s9", "cociente": "s11, s12", "sq": "s10, s12"}
+    reg = {"t1": "sr_a", "t2": "sr_b", "residuo": "sr_a", "|p| (copia)": "sr_b", "0 y cociente": "sr_a, sr_b",
            "mul_a": "mul_a", "mul_b": "mul_b", "cociente": "cociente", "sq": "sq"}
     est = list(range(7, 13))
     filas = [["Variable", "Registro", "Se escribe", "Se lee"] + [f"s{e}" for e in est]]
@@ -388,10 +394,12 @@ def seccion_procesador(h, fig):
     filas.append(["Vivas", "", "", ""] + [str(sum(1 for a_, b_ in vida.values() if a_ <= e <= b_)) for e in est])
     A(tabla(filas, [0.85, 0.75, 0.85, 0.85] + [0.6] * len(est)))
     A(Spacer(1, 4))
-    A(P("El diseño ya aplica la compartición en las entradas del sumador/restador: t1 y el residuo usan sr_a (sus "
-        "vidas no se cruzan), y t2, la copia de p y el cociente que se niega usan sr_b. El máximo de variables vivas "
-        "es 4 (en s11 y s12). mul_a y mul_b podrían compartir registro con cociente y sq, pero tienen otro ancho "
-        "(25 bits contra 32 y 1) y el VHDL quedaría menos claro; con la FPGA usada por debajo del 1 % no hace falta."))
+    A(P("El diseño ya aplica la compartición en las entradas del sumador/restador: t1, el residuo y el 0 de "
+        "0 − cociente usan sr_a (sus vidas no se cruzan), y t2, la copia de |p| y el cociente que se niega usan sr_b. "
+        "Si t1 < t2, s10 intercambia sr_a y sr_b (t2 queda en sr_a y t1 en sr_b) sin registros extra. El máximo de "
+        "variables vivas es 4 (en s10 y s11). mul_a y mul_b podrían compartir registro con cociente y sq, pero tienen "
+        "otro ancho (25 bits contra 32 y 1) y el VHDL quedaría menos claro; con la FPGA usada por debajo del 1 % no "
+        "hace falta."))
 
 
 # ===========================================================================
@@ -461,13 +469,13 @@ def seccion_visualizador(h, fig):
 # 11. Lo que se espera de la síntesis en ISE
 # ===========================================================================
 REG_BLOQUES = [
-    ("procesador_bareiss: registros de la tabla 9.3 y banco b1 a b4", "490", "490", ""),
+    ("procesador_bareiss: registros de la tabla 9.3 y banco b1 a b4", "521", "521", ""),
     ("procesador_bareiss: registro de estado st", "4", "4 a 14", "14 si XST elige one-hot"),
     ("visualizador (bin, neg, dec, cont, d, disp, disp_neg, dsel)", "126", "126", ""),
     ("visualizador: registro de estado xs", "3", "3 a 6", "6 si XST elige one-hot"),
     ("antirrebote (b1, b2, muestras, estable, estable_ant)", "12", "12", ""),
     ("divisor_frecuencia (cuenta_ciclos, cuenta_ms, onda)", "27", "27", ""),
-    ("Total", "662", "662 a 675", "Yosys dio 668"),
+    ("Total", "693", "693 a 706", "Yosys dio 699"),
 ]
 
 
@@ -497,8 +505,8 @@ def seccion_sintesis(h, fig):
     A(tabla([
         ["Dato del reporte", "FSM del procesador (st)", "FSM del visualizador (xs)"],
         ["States", "14 (s0 a s13)", "6 (x0 a x5)"],
-        ["Transitions", "25 flechas en el diagrama de estados (XST puede contarlas distinto)", "9"],
-        ["Inputs", "7: inicio, qb = 0, qa = 0, i = n, j = n, k + 1 = n, sr_a = 0", "3: final, cont = 31, d = 9"],
+        ["Transitions", "26 flechas en el diagrama de estados (XST puede contarlas distinto)", "9"],
+        ["Inputs", "7: inicio, qb = 0, qa = 0, i = n, j = n, k + 1 = n, resultado(49)", "3: final, cont = 31, d = 9"],
         ["Clock / Reset", "clk (flanco de subida) / rst (alto, asíncrono)", "igual"],
         ["Reset State", "s0", "x0"],
         ["Encoding", "auto: XST elige (one-hot, Gray o binario)", "auto"],
@@ -514,11 +522,12 @@ def seccion_sintesis(h, fig):
         ["RAMs", "2 × 32x32-bit dual-port, escritura síncrona y lectura asíncrona → RAM distribuida (LUT)", "—"],
         ["ROMs", "rom_matriz 32x6", "Decodificador de 7 segmentos y de ánodos"],
         ["Multipliers", "1 × 25x25-bit con signo (entidad multiplicador) → 2 DSP48E1 (el DSP48E1 multiplica 25 × 18)", "—"],
-        ["Adders/Subtractors", "entidad sumador_restador de 50 bits (XST puede listarlo como un addsub o como un "
-                               "sumador y un restador con un MUX); incrementadores dira + 1 (5), i + 1, j + 1, "
+        ["Adders/Subtractors", "entidad sumador_restador de 50 bits (como op = 1 siempre, XST puede dejar solo "
+                               "el restador, o listar un addsub); incrementadores dira + 1 (5), i + 1, j + 1, "
                                "k + 1 (3), cociente + 1 (32)",
          "visualizador: 0 − val (32), dígito + 3 (4), cont + 1 (5), d + 1 (4), dsel + 1 (3); divisor: 17 y 9 bits"],
-        ["Comparators", "qa = 0, qb = 0 (32 bits), sr_a = 0 (50 bits), i = n, j = n, k + 1 = n, dir_p = n (3 bits)",
+        ["Comparators", "qa = 0, qb = 0 (32 bits), i = n, j = n, k + 1 = n, dir_p = n (3 bits); el signo del "
+                        "restador y de p son bits sueltos (resultado(49), p(31))",
          "dígito > 4, cont = 31, d = 9, desborde (12 bits = 0); divisor y antirrebote"],
         ["Registers", "Tabla siguiente", "Tabla siguiente"],
         ["Multiplexers", "Los MUX de las secciones 9.3 y 9.4 (XST los suele absorber en LUT)", "Los de la sección 10.2"],
@@ -532,22 +541,23 @@ def seccion_sintesis(h, fig):
         "(sim/estimacion_yosys.txt). Capacidad del XC7A100T-1CSG324C según la hoja de datos de Artix-7:"))
     A(tabla([
         ["Recurso", "Estimado", "Disponible", "Uso"],
-        ["Flip-flops (slice registers)", "668", "126 800", "0,5 %"],
-        ["LUT de lógica", "≈ 830 a 880", "63 400", "≈ 1,4 %"],
+        ["Flip-flops (slice registers)", "699", "126 800", "0,6 %"],
+        ["LUT de lógica", "≈ 1 000 a 1 070", "63 400", "≈ 1,6 %"],
         ["LUT como memoria (RAM distribuida)", "48 (12 RAM32M: 6 por RAM)", "19 000", "0,3 %"],
         ["DSP48E1", "2 (multiplicador 25 × 25)", "240", "0,8 %"],
         ["IOB", "25 (6 entradas, 19 salidas)", "210", "11,9 %"],
         ["BUFG", "1", "32", "3 %"],
     ], [2.2, 2.2, 1.2, 1.3]))
     A(Spacer(1, 4))
-    A(P("Por bloque (Yosys): el ASM de procesador_bareiss ≈ 600 LUT y 497 flip-flops; multiplicador 2 DSP48E1; "
-        "sumador_restador 50 LUT; cada RAM 6 RAM32M; visualizador ≈ 220 LUT y 132 flip-flops. Comparado con la versión "
-        "anterior del procesador (19 estados), el diseño completo bajó de 1 022 a 877 LUT y de 780 a 668 flip-flops."))
+    A(P("Por bloque (Yosys, sin aplanar): el ASM de procesador_bareiss ≈ 760 LUT y 528 flip-flops; multiplicador 2 "
+        "DSP48E1; sumador_restador 50 LUT y 26 CARRY4; cada RAM 6 RAM32M; visualizador ≈ 220 LUT y 132 flip-flops. "
+        "Al aplanar, Yosys ve que op vale 1 siempre y deja solo el restador: el diseño completo queda en 1 002 LUT y "
+        "699 flip-flops. La versión anterior del procesador (19 estados) daba 1 022 LUT y 780 flip-flops."))
     A(P("11.5 Tiempos", "h2"))
     A(P("El reloj es de 100 MHz (TIMESPEC de 10 ns en el .ucf). Caminos candidatos a ser el crítico:"))
     V(viñetas([
         "mul_a, mul_b → multiplicador (2 DSP48E1 en cascada, sin registros internos) → sr_a o sr_b.",
-        "sr_a, sr_b, op → sumador/restador de 50 bits → sr_a (lazo de la división en s11).",
+        "sr_a, sr_b → restador de 50 bits → bit de signo → UC y sr_a (lazo de la división en s10 y s11).",
         "i, j, k → dir_ij o dir_kj → RAM (lectura asíncrona) → qa = 0 o qb = 0 → UC.",
     ]))
     A(P("El periodo mínimo que da XST después de la síntesis es una estimación; el valor que cuenta es el del reporte "
@@ -561,9 +571,9 @@ def seccion_sintesis(h, fig):
         ["FSM del visualizador: estados / entradas / flip-flops", "6 / 3 / 3 a 6", ""],
         ["RAM 32x32 dual-port en LUT", "2", ""],
         ["Multiplicador 25x25 / DSP48E1", "1 / 2", ""],
-        ["Sumador/restador de 50 bits en el procesador", "1 (o un sumador y un restador)", ""],
-        ["Flip-flops", "662 a 675", ""],
-        ["LUT", "≈ 900", ""],
+        ["Sumador/restador de 50 bits en el procesador", "1 (o solo un restador: op = 1)", ""],
+        ["Flip-flops", "693 a 706", ""],
+        ["LUT", "≈ 1 000", ""],
         ["IOB", "25", ""],
         ["Periodo mínimo / frecuencia máxima", "≤ 10 ns / ≥ 100 MHz (objetivo)", ""],
         ["Camino crítico", "multiplicador o sumador de 50 bits", ""],

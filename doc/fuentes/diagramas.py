@@ -147,6 +147,9 @@ def asm_hoja2():
     g.conector("cB", "B")
     g.bloque("s2")
     g.estado("S2", "piv ← a(k,k)   (qb, con j = k)\ni ← k + 1")
+    g.decision("D2p", "p < 0", "p < 0", "p ≥ 0")
+    g.cond("C2p", "|p| ← resultado\n(0 − p, preparado en s12)")
+    g.cond("C2q", "|p| ← p")
     g.decision("D2", "a(k,k) = 0", "a(k,k) = 0", "a(k,k) ≠ 0")
     g.cond("C2", "banco(k) ← a(k,k)")
     g.bloque("s3")
@@ -166,7 +169,11 @@ def asm_hoja2():
     g.conector("cC", "C")
     g.conector("cF", "F")
     g.flecha("cB", "S2")
-    g.flecha("S2", "D2")
+    g.flecha("S2", "D2p")
+    g.flecha("D2p", "C2p", "1")
+    g.flecha("D2p", "C2q", "0")
+    g.flecha("C2p", "D2")
+    g.flecha("C2q", "D2")
     g.flecha("D2", "C2", "0")
     g.flecha("C2", "cC")
     g.flecha("D2", "S3", "1")
@@ -198,10 +205,12 @@ def asm_hoja3():
     g.bloque("s8")
     g.estado("S8", "sr_a ← producto   (t1 = piv · a(i,j))\nmul_a ← aik\nmul_b ← a(k,j)")
     g.bloque("s9")
-    g.estado("S9", "sr_b ← producto   (t2 = a(i,k) · a(k,j))\nop ← 1   (resta)")
+    g.estado("S9", "sr_b ← producto   (t2 = a(i,k) · a(k,j))\nsq ← signo(p) ;  cociente ← 0")
     g.bloque("s10")
-    g.estado("S10", "sr_a ← resultado   (residuo = t1 − t2)\nsr_b ← p ;  cociente ← 0\n"
-                    "sq ← signo(t1 − t2) ⊕ signo(p)\nop ← not sq   (mismo signo: resta)")
+    g.estado("S10", "restador: resultado = sr_a − sr_b")
+    g.decision("D10", "resultado < 0", "resultado < 0", "resultado ≥ 0")
+    g.cond("C10a", "sr_a ← sr_b ;  sr_b ← sr_a\nsq ← not sq\n(se resta al revés: t2 − t1)")
+    g.cond("C10b", "sr_a ← resultado   (residuo = |t1 − t2|)\nsr_b ← |p|")
     g.conector("cE", "E")
     g.flecha("cC", "S6")
     g.flecha("S6", "S7")
@@ -209,7 +218,11 @@ def asm_hoja3():
     g.flecha("S7", "S8")
     g.flecha("S8", "S9")
     g.flecha("S9", "S10")
-    g.flecha("S10", "cE")
+    g.flecha("S10", "D10")
+    g.flecha("D10", "C10a", "1")
+    g.flecha("C10a", "S10")
+    g.flecha("D10", "C10b", "0")
+    g.flecha("C10b", "cE")
     return g
 
 
@@ -217,10 +230,10 @@ def asm_hoja4():
     g = ASM()
     g.conector("cE", "E")
     g.bloque("s11")
-    g.estado("S11", "DIVISIÓN\nresultado = residuo − p   (op = 1)\no residuo + p   (op = 0)")
-    g.decision("D11", "residuo = 0\n(sr_a = 0)", "residuo = 0", "residuo ≠ 0")
+    g.estado("S11", "DIVISIÓN POR RESTAS SUCESIVAS\nresultado = residuo − |p|")
+    g.decision("D11", "resultado < 0", "resultado < 0", "resultado ≥ 0")
     g.cond("C11a", "sr_a ← resultado\ncociente ← cociente + 1")
-    g.cond("C11b", "sr_b ← cociente ;  op ← 1\n(prepara 0 − cociente)")
+    g.cond("C11b", "sr_a ← 0 ;  sr_b ← cociente\n(prepara 0 − cociente)")
     g.bloque("s12")
     g.estado("S12", "RAM(i,j) ← cociente si sq = 0\nRAM(i,j) ← 0 − cociente si sq = 1")
     g.decision("D12a", "j = n", "j = n", "j ≠ n")
@@ -228,7 +241,7 @@ def asm_hoja4():
     g.decision("D12b", "i = n", "i = n", "i ≠ n")
     g.cond("C12b", "i ← i + 1 ;  j ← k")
     g.decision("D12c", "k + 1 = n", "k + 1 = n", "k + 1 ≠ n")
-    g.cond("C12c", "p ← piv ;  k ← k + 1\nj ← k + 1")
+    g.cond("C12c", "p ← piv ;  k ← k + 1 ;  j ← k + 1\nsr_a ← 0 ;  sr_b ← piv\n(prepara 0 − piv)")
     g.decision("D12d", "sq ⊕ signo", "sq ⊕ signo = 1", "sq ⊕ signo = 0")
     g.cond("C12d", "det ← 0 − cociente")
     g.cond("C12e", "det ← cociente")
@@ -445,8 +458,9 @@ TRANS_GENERAL = [
     ("s2", "s3", "a(k,k)=0"), ("s2", "s6", "a(k,k)≠0"),
     ("s3", "s3", "a(i,k)=0, i≠n"), ("s3", "s4", "a(i,k)≠0"), ("s3", "s13", "i=n (det=0)"),
     ("s4", "s5", ""), ("s5", "s4", "j≠n"), ("s5", "s2", "j=n"),
-    ("s6", "s7", ""), ("s7", "s8", ""), ("s8", "s9", ""), ("s9", "s10", ""), ("s10", "s11", ""),
-    ("s11", "s11", "residuo≠0"), ("s11", "s12", "residuo=0"),
+    ("s6", "s7", ""), ("s7", "s8", ""), ("s8", "s9", ""), ("s9", "s10", ""),
+    ("s10", "s10", "t1<t2"), ("s10", "s11", "t1≥t2"),
+    ("s11", "s11", "residuo≥|p|"), ("s11", "s12", "residuo<|p|"),
     ("s12", "s7", "j≠n"), ("s12", "s6", "j=n, i≠n"), ("s12", "s2", "k+1≠n"), ("s12", "s13", "k+1=n"),
     ("s13", "s13", "inicio=0"), ("s13", "s1", "inicio=1"),
 ]
@@ -582,12 +596,12 @@ def _caja_gris(uc, cd, ent_uc, pc, est, sal_uc, ent_cd, sal_cd):
 
 def gris_proc():
     return _caja_gris(
-        "UNIDAD DE CONTROL\n\nregistro de estado st\n(s0 a s13, 4 bits)\nROM de entrada 2048 × 4\nROM de salida 4096 × 41",
+        "UNIDAD DE CONTROL\n\nregistro de estado st\n(s0 a s13, 4 bits)\nROM de entrada 2048 × 4\nROM de salida 8192 × 44",
         "CAMINO DE DATOS\n\nROM, RAM A, RAM B,\nmultiplicador, sumador/restador,\n"
         "banco de pivotes (b1 a b4),\nregistros y sus MUX",
         "clk\nrst\ninicio",
-        "PC: palabra de control (40 bits)\n18 cargas (ld_x) + 17 bits de MUX\n+ 4 de las RAM + 1 del banco",
-        "señales de estado (7)\nz_b, z_a, i_n, j_n,\nk1_n, z_res, sqs",
+        "PC: palabra de control (43 bits)\n18 cargas (ld_x) + 20 bits de MUX\n+ 4 de las RAM + 1 del banco",
+        "señales de estado (8)\nz_b, z_a, i_n, j_n, k1_n,\np_neg, neg, sqs",
         "final", "clk, rst\ndir_p (3)", "det (32)\npivote (32)")
 
 
@@ -624,9 +638,11 @@ def camino_datos_proc():
   MA [{mux}, label="mul_a\\npiv | aik"]; MB [{mux}, label="mul_b\\nqa | qb"];
   RMA [{reg}, label="mul_a"]; RMB [{reg}, label="mul_b"];
   MUL [{uf}, label="MULTIPLICADOR\\n25 × 25 → 50"];
-  XA [{mux}, label="sr_a\\nproducto | resultado"]; XB [{mux}, label="sr_b\\nproducto | p | cociente"];
-  RSA [{reg}, label="sr_a\\n(t1, residuo)"]; RSB [{reg}, label="sr_b\\n(t2, p, cociente)"];
-  SR [{uf}, label="SUMADOR/RESTADOR\\n50 bits (op)"];
+  XA [{mux}, label="sr_a\\nproducto | resultado | sr_b | 0"];
+  XB [{mux}, label="sr_b\\nproducto | sr_a | |p| | cociente | piv"];
+  RSA [{reg}, label="sr_a\\n(t1, residuo)"]; RSB [{reg}, label="sr_b\\n(t2, |p|, cociente, piv)"];
+  SR [{uf}, label="SUMADOR/RESTADOR\\n50 bits (op = 1)"];
+  PA [{reg}, label="|p|"];
   COC [{reg}, label="cociente"]; DET [{reg}, label="det"];
   dirp [shape=plaintext, label="dir_p"]; OP [{mux}, label="pivote\\nb1..b4 | det"];
   odet [shape=plaintext, label="det (32)"]; opiv [shape=plaintext, label="pivote (32)"];
@@ -635,7 +651,7 @@ def camino_datos_proc():
   RAMA -> AIK [label="qa"]; RAMA -> TMP; RAMA -> MB; RAMB -> PIV [label="qb"]; RAMB -> MB; RAMB -> MD; RAMB -> BAN;
   TMP -> MD; PIV -> MA; AIK -> MA; PIV -> P;
   MA -> RMA; MB -> RMB; RMA -> MUL; RMB -> MUL; MUL -> XA [label="producto"]; MUL -> XB;
-  XA -> RSA; XB -> RSB; P -> XB; COC -> XB; RSA -> SR; RSB -> SR;
+  XA -> RSA; XB -> RSB; PA -> XB; COC -> XB; PIV -> XB; RSA -> SR; RSB -> SR; P -> PA; SR -> PA;
   SR -> XA [label="resultado"]; SR -> MD; SR -> DET; COC -> DET; COC -> MD;
   BAN -> OP; DET -> OP; dirp -> OP; DET -> odet; OP -> opiv;
 }}
@@ -829,24 +845,27 @@ def cd_aritmetica():
     L += [_m("Mma", ["0: piv", "1: aik"], "sel_ma"), _m("Mmb", ["0: qa", "1: qb"], "sel_mb"),
           _r("ma", "mul_a", 25, "ld_ma"), _r("mb", "mul_b", 25, "ld_mb"),
           _u("MUL", "<b>MULTIPLICADOR</b> (U_MUL)<br/>producto = mul_a × mul_b"),
-          _m("Msra", ["0: producto", "1: resultado"], "sel_sra"),
-          _m("Msrb", ["00: producto", "01: p", "10: cociente"], "sel_srb"),
+          _m("Msra", ["00: producto", "01: resultado", "10: sr_b", "11: 0"], "sel_sra"),
+          _m("Msrb", ["000: producto", "001: sr_a", "010: |p|", "011: cociente", "100: piv"], "sel_srb"),
           _r("sra", "sr_a", 50, "ld_sra"), _r("srb", "sr_b", 50, "ld_srb"),
-          _m("Mop", ["0: 1 (resta)", "1: not (resultado(49) ⊕ p(31))"], "sel_op"), _r("op", "op", 1, "ld_op"),
-          _u("SR", f'<b>SUMADOR/RESTADOR</b> (U_SR)<br/>resultado = sr_a + sr_b (op = 0)<br/>o sr_a − sr_b (op = 1)'),
-          _c("Zr", "sr_a = 0", "z_res"),
-          _p("SRS", "resultado (50) → sr_a, det, RAM (data)"),
+          _p("op", "op = 1 (solo resta)"),
+          _u("SR", f'<b>SUMADOR/RESTADOR</b> (U_SR)<br/>resultado = sr_a − sr_b'),
+          _p("Zr", f'resultado(49) <font color="{ROJO}">→ neg</font>'),
+          _p("SRS", "resultado (50) → sr_a, |p|, det, RAM (data)"),
           "  Mma -> ma; Mmb -> mb; ma -> MUL; mb -> MUL; MUL -> Msra [label=\"producto\"]; MUL -> Msrb;",
-          "  Msra -> sra; Msrb -> srb; sra -> SR; srb -> SR; Mop -> op; op -> SR; SR -> SRS; sra -> Zr;",
+          "  Msra -> sra; Msrb -> srb; sra -> SR; srb -> SR; op -> SR; SR -> SRS; SR -> Zr;",
+          "  sra -> Msrb [constraint=false]; srb -> Msra [constraint=false];",
           "  SR -> Msra [label=\"resultado\", constraint=false];"]
     _columna(L, "coc", (["0: 0", "1: cociente+1"], "sel_coc"), ("cociente", 32, "ld_coc"), "+1",
              "→ sr_b, det, RAM (data)")
-    _columna(L, "p", (["0: 1", "1: piv"], "sel_p"), ("p", 32, "ld_p"), None, "→ sr_b; p(31) → sq, op")
-    L += [_p("xE", "resultado(49) ⊕ p(31)"), _r("sqR", "sq", 1, "ld_sq"),
-          _p("sqS", f'<font color="{ROJO}">sq ⊕ signo → sqs</font>'), "  xE -> sqR; sqR -> sqS;"]
+    _columna(L, "p", (["0: 1", "1: piv"], "sel_p"), ("p", 32, "ld_p"), None,
+             f'p(31) <font color="{ROJO}">→ p_neg</font>, → sq')
+    _columna(L, "pabs", (["0: p", "1: resultado"], "sel_pabs"), ("|p|", 32, "ld_pabs"), None, "→ sr_b")
+    _columna(L, "sq", (["0: p(31)", "1: not sq"], "sel_sq"), ("sq", 1, "ld_sq"), None,
+             f'<font color="{ROJO}">sq ⊕ signo → sqs</font>')
     _columna(L, "sg", (["0: 0", "1: not signo"], "sel_signo"), ("signo", 1, "ld_signo"), "not", "→ sqs")
     L += ["  { rank=same; Mma; Mmb; }",
-          "  { rank=same; cocM; pM; xE; sgM; }",
+          "  { rank=same; cocM; pM; pabsM; sqM; sgM; }",
           "  SRS -> cocM [style=invis];", "}"]
     return "\n".join(L)
 
@@ -907,9 +926,9 @@ def _uc(ent_sig, ent_pc, n, rom_e, rom_s, salidas):
 
 
 def uc_proc():
-    return _uc("inicio\nz_b, z_a, i_n, j_n,\nk1_n, z_res\n(7 entradas)",
-               "inicio, z_b, z_a, i_n, j_n,\nk1_n, z_res, sqs\n(8 condiciones)",
-               4, "2^(4+7) × 4\\n= 2048 × 4", "2^(4+8) × 41\\n= 4096 × 41", "PC (40)\nfinal")
+    return _uc("inicio\nz_b, z_a, i_n, j_n,\nk1_n, neg\n(7 entradas)",
+               "inicio, z_b, z_a, i_n, j_n,\nk1_n, p_neg, neg, sqs\n(9 condiciones)",
+               4, "2^(4+7) × 4\\n= 2048 × 4", "2^(4+9) × 44\\n= 8192 × 44", "PC (43)\nfinal")
 
 
 def uc_vis():

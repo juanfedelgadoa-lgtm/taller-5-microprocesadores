@@ -5,12 +5,12 @@ empieza a contar 2 ciclos despues, por eso GHDL = modelo - 2.
 
 matriz 0: det = 26, pivotes = [7, 26], 39 ciclos (GHDL: 37 + 2)  OK
 matriz 1: det = 3, pivotes = [2, 7, 3], 58 ciclos (GHDL: 56 + 2)  OK
-matriz 2: det = -22, pivotes = [2, 4, 13, -22], 218 ciclos (GHDL: 216 + 2)  OK
-matriz 3: det = 362, pivotes = [4, 20, -170, -639, 362], 3772 ciclos (GHDL: 3770 + 2)  OK
-matriz 4: det = 50, pivotes = [-2, -10, 50], 132 ciclos (GHDL: 130 + 2)  OK
-matriz 5: det = 150, pivotes = [1, -5, 25, 150], 400 ciclos (GHDL: 398 + 2)  OK
+matriz 2: det = -22, pivotes = [2, 4, 13, -22], 220 ciclos (GHDL: 218 + 2)  OK
+matriz 3: det = 362, pivotes = [4, 20, -170, -639, 362], 3783 ciclos (GHDL: 3781 + 2)  OK
+matriz 4: det = 50, pivotes = [-2, -10, 50], 135 ciclos (GHDL: 133 + 2)  OK
+matriz 5: det = 150, pivotes = [1, -5, 25, 150], 406 ciclos (GHDL: 404 + 2)  OK
 matriz 6: det = 0, pivotes = [0, 0, 0, 0, 0], 31 ciclos (GHDL: 29 + 2)  OK
-matriz 7: det = -17121828, pivotes = [30, -1359, 22146, 277564, -17121828], 19012994 ciclos (GHDL: 19012992 + 2)  OK
+matriz 7: det = -17121828, pivotes = [30, -1359, 22146, 277564, -17121828], 19013013 ciclos (GHDL: 19013011 + 2)  OK
 XS3            0: dec = 0000000000, neg = 0, 376 ciclos  OK
 XS3            7: dec = 0000000007, neg = 0, 376 ciclos  OK
 XS3          362: dec = 0000000362, neg = 0, 376 ciclos  OK
@@ -19,6 +19,6 @@ XS3      9999999: dec = 0009999999, neg = 0, 376 ciclos  OK
 XS3    -17121828: dec = 0017121828, neg = 1, 376 ciclos  OK
 XS3   2147483647: dec = 2147483647, neg = 0, 376 ciclos  OK
 XS3  -2147483647: dec = 2147483647, neg = 1, 376 ciclos  OK
-PC del procesador: 40 bits; PC del visualizador: 12 bits
-procesador: entradas al estado siguiente ['inicio', 'z_b', 'z_a', 'i_n', 'j_n', 'k1_n', 'z_res'] (26 filas); entradas a la PC ['inicio', 'z_b', 'z_a', 'i_n', 'j_n', 'k1_n', 'z_res', 'sqs'] (27 filas)
+PC del procesador: 43 bits; PC del visualizador: 12 bits
+procesador: entradas al estado siguiente ['inicio', 'z_b', 'z_a', 'i_n', 'j_n', 'k1_n', 'neg'] (27 filas); entradas a la PC ['inicio', 'z_b', 'z_a', 'i_n', 'j_n', 'k1_n', 'p_neg', 'neg', 'sqs'] (30 filas)
 visualizador: entradas al estado siguiente ['final', 'cont_31', 'd_9'] (9 filas); entradas a la PC ['final', 'val_neg', 'cont_31', 'dig_4', 'd_9'] (12 filas)

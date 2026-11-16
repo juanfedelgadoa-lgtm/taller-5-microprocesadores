@@ -128,7 +128,8 @@ def contenido():
          "un paso por ciclo de reloj, con contadores."],
         ["Unidades funcionales del procesador",
          "Dos entidades con una instancia cada una: [c]multiplicador[/c] (U_MUL, 25 × 25 → 50) y "
-         "[c]sumador_restador[/c] (U_SR, 50 bits, op = 0 suma y op = 1 resta). La RAM es la entidad RAM_memory del "
+         "[c]sumador_restador[/c] (U_SR, 50 bits, op = 0 suma y op = 1 resta; el procesador lo usa siempre con "
+         "op = 1 porque la división es por restas sucesivas). La RAM es la entidad RAM_memory del "
          "profesor (dos instancias). Los estados cargan las entradas de las unidades. El visualizador tiene sus "
          "propias unidades (restador 0 − val, sumador +3, comparador > 4)."],
         ["Alto nivel, como los ejemplos",
@@ -147,8 +148,8 @@ def contenido():
          "en complemento a 2. Elementos por columnas: a11, a21, …, an1, a12, …"],
         ["La ROM hace parte de la arquitectura", "Está dentro del procesador; no entra por puertos."],
         ["Multiplicador, sumador/restador y división por restas sucesivas",
-         "Entidades multiplicador y sumador_restador (una instancia de cada una); la división son los estados s10 y "
-         "s11."],
+         "Entidades multiplicador y sumador_restador (una instancia de cada una); la división, solo con restas, "
+         "son los estados s10 y s11."],
         ["Memoria RAM del curso", "Dos instancias de [c]RAM_memory[/c] (modelo del profesor, 32 × 32)."],
         ["Pivotes en un banco de registros, visibles con los switches",
          "Registros b1 a b4: dir_p = k (SW2..SW0) elige el pivote; con dir_p = n sale el determinante, que es el "
@@ -211,6 +212,7 @@ def contenido():
         "      al terminar:  k = 1;  j = 1;  p = 1;  signo = 0\n"
         "mientras k <= n-1:\n"
         "  s2 :  piv = a(k,k)  (RAM B con j = k);  i = k + 1\n"
+        "        |p| = p, o |p| = 0 - p si p < 0                         (restador)\n"
         "        si piv = 0:\n"
         "  s3 :     buscar i = k+1..n con a(i,k) /= 0;  si no existe: det = 0, ir a s13\n"
         "  s4-s5:   para j = k..n:  RAM(i,j) = a(k,j);  tmp = a(i,j);  RAM(k,j) = tmp\n"
@@ -220,12 +222,13 @@ def contenido():
         "  s6 :     aik = a(i,k)\n"
         "           para j = k+1..n:\n"
         "  s7-s9:     t1 = piv · a(i,j);   t2 = aik · a(k,j)                (multiplicador)\n"
-        "  s10:       residuo = t1 - t2;  cociente = 0                     (sumador/restador)\n"
-        "             sq = signo(residuo) xor signo(p)\n"
-        "  s11:       mientras residuo /= 0:                               (sumador/restador)\n"
-        "                residuo = residuo - p (mismo signo) o residuo + p (signos distintos)\n"
+        "             sq = signo(p);  cociente = 0\n"
+        "  s10:       si t1 - t2 < 0:  intercambiar t1 y t2;  sq = not sq    (restador)\n"
+        "             residuo = t1 - t2  (= |t1 - t2|)\n"
+        "  s11:       mientras residuo - |p| >= 0:                         (restador)\n"
+        "                residuo = residuo - |p|\n"
         "                cociente = cociente + 1\n"
-        "  s12:       RAM(i,j) = +cociente o -cociente (según sq)\n"
+        "  s12:       RAM(i,j) = cociente (sq = 0) o 0 - cociente (sq = 1)\n"
         "        p = piv;  k = k + 1\n"
         "  s12:  en el último paso:  det = +cociente o -cociente (según sq xor signo)\n"
         "s13:  final = 1;  si inicio = 1 ir a s1"))
@@ -332,17 +335,20 @@ def contenido():
          "dos RAM a la vez. Al terminar deja k = 1 y j = 1, para que la RAM B lea a(1,1)."),
         ("asm_hoja2", "Hoja 2: pivote, búsqueda de fila e intercambio (s2 a s5)",
          "La RAM A siempre lee a(i,j) y la RAM B a(k,j). Con j = k, s2 lee el pivote a(k,k) en la RAM B y s3 busca "
-         "a(i,k) ≠ 0 en la RAM A. El intercambio usa dos estados por columna: s4 escribe a(k,j) en la posición (i,j) "
-         "y guarda a(i,j) en tmp; s5 escribe tmp en la posición (k,j)."),
+         "a(i,k) ≠ 0 en la RAM A. s2 también deja listo el divisor |p|: p si p ≥ 0, o 0 − p si p < 0 (el restador "
+         "calcula 0 − p con las entradas que cargó s12). El intercambio usa dos estados por columna: s4 escribe "
+         "a(k,j) en la posición (i,j) y guarda a(i,j) en tmp; s5 escribe tmp en la posición (k,j)."),
         ("asm_hoja3", "Hoja 3: productos y resta (s6 a s10)",
          "s6 guarda a(i,k) en aik al empezar cada fila. Con un solo multiplicador, los dos productos se hacen en "
-         "estados seguidos: s7 carga piv y a(i,j), s8 guarda t1 en sr_a y carga aik y a(k,j), s9 guarda t2 en sr_b. "
-         "En s10 el sumador/restador da t1 − t2, que pasa a ser el residuo."),
+         "estados seguidos: s7 carga piv y a(i,j), s8 guarda t1 en sr_a y carga aik y a(k,j), s9 guarda t2 en sr_b, "
+         "pone el cociente en 0 y sq ← signo(p). En s10 el restador da t1 − t2. Si es negativo (t1 < t2), el ASM "
+         "intercambia sr_a y sr_b, invierte sq y repite s10, que ahora da t2 − t1. Con el resultado positivo, el "
+         "residuo es |t1 − t2| y sr_b toma |p|."),
         ("asm_hoja4", "Hoja 4: división, escritura de a(i,j) y final (s11 a s13)",
-         "s11 es el lazo de la división: en cada ciclo el residuo se acerca a 0 restando p (si tienen el mismo signo) "
-         "o sumándolo (si no), y el cociente aumenta. Cuando el residuo llega a 0, s12 escribe el cociente con su "
-         "signo y avanza a la siguiente posición; en el último paso guarda el determinante. En s13 el ASM espera con "
-         "final = 1."),
+         "s11 es el lazo de la división por restas sucesivas: mientras residuo − |p| ≥ 0, el residuo pasa a ser esa "
+         "resta y el cociente aumenta en 1. Cuando la resta da negativo, carga 0 y el cociente en el restador; s12 "
+         "escribe el cociente (sq = 0) o 0 − cociente (sq = 1) y avanza a la siguiente posición; en el último paso "
+         "guarda el determinante. En s13 el ASM espera con final = 1."),
     ]
     for titulo_fig, titulo, texto in hojas:
         if titulo_fig != "asm_hoja1":
@@ -355,17 +361,21 @@ def contenido():
         ("s0", "final = 0. Si inicio = 1: n ← a (ROM 00h); dira ← 1; i ← 1; j ← 1"),
         ("s1", "RAM(i,j) ← a con extensión de signo; dira ← dira + 1; avanza i, j; al final k ← 1, j ← 1, p ← 1, "
                "signo ← 0"),
-        ("s2", "piv ← a(k,k) (qb); i ← k + 1; si a(k,k) ≠ 0: banco(k) ← a(k,k)"),
+        ("s2", "piv ← a(k,k) (qb); i ← k + 1; |p| ← p si p ≥ 0, o |p| ← resultado (0 − p) si p < 0; "
+               "si a(k,k) ≠ 0: banco(k) ← a(k,k)"),
         ("s3", "Lee a(i,k) (qa); si ≠ 0: signo ← not signo; si = 0 e i = n: det ← 0; si no: i ← i + 1"),
         ("s4", "RAM(i,j) ← a(k,j) (qb); tmp ← a(i,j) (qa)"),
         ("s5", "RAM(k,j) ← tmp; si j = n: j ← k; si no: j ← j + 1"),
         ("s6", "aik ← a(i,k) (qa); j ← k + 1"),
         ("s7", "mul_a ← piv; mul_b ← a(i,j)"),
         ("s8", "sr_a ← producto (t1); mul_a ← aik; mul_b ← a(k,j)"),
-        ("s9", "sr_b ← producto (t2); op ← 1"),
-        ("s10", "sr_a ← t1 − t2 (residuo); sr_b ← p; sq ← signo(t1 − t2) xor signo(p); op ← not sq; cociente ← 0"),
-        ("s11", "Si residuo ≠ 0: residuo ← residuo ∓ p; cociente ← cociente + 1. Si no: sr_b ← cociente; op ← 1"),
-        ("s12", "RAM(i,j) ← ±cociente; avanza j, i o k; en el último paso det ← ±cociente"),
+        ("s9", "sr_b ← producto (t2); sq ← signo(p); cociente ← 0"),
+        ("s10", "Restador: t1 − t2. Si es negativo: sr_a ← sr_b; sr_b ← sr_a; sq ← not sq; vuelve a s10. Si no: "
+                "sr_a ← resultado (residuo = |t1 − t2|); sr_b ← |p|"),
+        ("s11", "Si residuo − |p| ≥ 0: residuo ← residuo − |p|; cociente ← cociente + 1. Si no: sr_a ← 0; "
+                "sr_b ← cociente"),
+        ("s12", "RAM(i,j) ← cociente (sq = 0) o 0 − cociente (sq = 1); avanza j, i o k; al pasar al siguiente k: "
+                "p ← piv, sr_a ← 0, sr_b ← piv; en el último paso det ← ±cociente"),
         ("s13", "final = 1. Si inicio = 1: dira ← 1; i ← 1; j ← 1"),
     ]
     A(PageBreak())
@@ -420,19 +430,25 @@ def contenido():
 
     # 8 -----------------------------------------------------------------------
     A(P("8. División por restas sucesivas", "h1"))
-    A(P("La división está dentro del ASM de Bareiss y usa el sumador/restador con sus dos operaciones. No hace falta "
-        "sacar valores absolutos: el residuo empieza en t1 − t2 y se acerca a 0 de a p por ciclo."))
+    A(P("La división está dentro del ASM de Bareiss y solo usa restas: el sumador/restador trabaja siempre con "
+        "op = 1. Se divide |t1 − t2| entre |p| restando |p| hasta que el residuo ya no alcanza, y el signo del "
+        "cociente se aplica al final con el bit sq."))
     V(viñetas([
-        "s10: residuo (sr_a) ← t1 − t2; sr_b ← p; cociente ← 0; sq ← signo(t1 − t2) xor signo(p). Si los dos tienen "
-        "el mismo signo, op ← 1 (resta); si no, op ← 0 (suma).",
-        "s11: si el residuo no es 0, residuo ← residuo − p (o + p) y cociente ← cociente + 1, y el ASM se queda en s11. "
-        "Cuando llega a 0, carga sr_b ← cociente y op ← 1 para calcular 0 − cociente.",
+        "s2 (una vez por paso k): |p| ← p si p ≥ 0. Si p < 0, |p| ← 0 − p, que el restador calcula con sr_a = 0 y "
+        "sr_b = piv, cargados en s12 al cambiar de paso.",
+        "s9: sq ← signo(p); cociente ← 0.",
+        "s10: el restador da t1 − t2. Si es negativo (t1 < t2), el ASM intercambia sr_a y sr_b, invierte sq y se queda "
+        "un ciclo más en s10, donde el restador da t2 − t1. Con el resultado positivo: residuo (sr_a) ← |t1 − t2| y "
+        "sr_b ← |p|. Así sq = signo(t1 − t2) xor signo(p).",
+        "s11: mientras residuo − |p| ≥ 0: residuo ← residuo − |p| y cociente ← cociente + 1. Cuando la resta da "
+        "negativo, carga sr_a ← 0 y sr_b ← cociente para calcular 0 − cociente.",
         "s12: RAM(i,j) ← cociente si sq = 0, o 0 − cociente si sq = 1.",
     ]))
-    A(P("Ejemplo: t1 − t2 = −12 y p = 3 (signos distintos, op = 0): −12 → −9 → −6 → −3 → 0, cociente = 4 y sq = 1, "
-        "así que a(i,j) = −4 = −12 / 3."))
-    A(P("Tarda |cociente| + 1 ciclos en s11. El lazo termina porque la división de Bareiss es exacta: el residuo "
-        "llega justo a 0 (el enunciado lo garantiza)."))
+    A(P("Ejemplo: t1 = 3, t2 = 15 y p = 3. En s10, 3 − 15 < 0: se intercambian, sq pasa de 0 a 1 y el restador da "
+        "15 − 3 = 12. En s11: 12 → 9 → 6 → 3 → 0 (cociente = 4) y 0 − 3 < 0 termina el lazo. s12 escribe "
+        "0 − 4 = −4 = (3 − 15) / 3."))
+    A(P("Tarda cociente + 1 ciclos en s11, más un ciclo en s10 si t1 < t2. El lazo termina porque |p| ≥ 1 (p es un "
+        "pivote distinto de 0), y como la división de Bareiss es exacta, el residuo final es 0."))
 
     # 9 a 11: procedimiento UC + CD y sintesis ---------------------------------
     seccion_procesador(h, fig)
@@ -446,7 +462,7 @@ def contenido():
         "[c]divisor_frecuencia[/c] genera un pulso de un ciclo cada 1 ms (cuenta 100 000 ciclos) y una onda cuadrada "
         "de periodo 1 s (cambia cada 500 ms) que se ve en LD15. Los pulsos se usan como habilitación: todo el diseño "
         "trabaja con el mismo reloj, sin relojes derivados. El procesador trabaja a 100 MHz: con un reloj de 1 s, la "
-        "matriz 5×5 por defecto (3 770 ciclos) tardaría más de una hora."))
+        "matriz 5×5 por defecto (3 781 ciclos) tardaría más de una hora."))
     A(P("Antirrebote (uno solo)", "h2"))
     A(P("El bloque [c]antirrebote[/c] sincroniza el botón de inicio con dos flip-flops, lo muestrea cada 1 ms en un "
         "registro de 8 bits y cambia su nivel estable solo con 8 muestras iguales (8 ms sin rebote). Entrega un pulso "
@@ -464,7 +480,8 @@ def contenido():
         "Carga de la matriz (s0 y s1): n² + 1 ciclos.",
         "Por cada paso k: s2 (1 ciclo); si el pivote es cero, además la búsqueda en s3, 2 ciclos por columna "
         "intercambiada y otra lectura en s2. Por cada fila: s6 (1 ciclo).",
-        "Por cada elemento actualizado: s7 a s10 y s12 (5 ciclos) más |cociente| + 1 ciclos de división en s11.",
+        "Por cada elemento actualizado: s7 a s10 y s12 (5 ciclos), un ciclo más en s10 si t1 < t2, y "
+        "|cociente| + 1 ciclos de división en s11.",
         "XS3: 376 ciclos por conversión, en paralelo, sin detener al procesador.",
     ]))
     A(P("La división por restas sucesivas domina el tiempo cuando los valores son grandes. Las matrices de prueba "
@@ -556,11 +573,11 @@ def contenido():
     A(P("Todos los pivotes también coinciden con el modelo. En la prueba de la tarjeta el display mostró "
         f"«{texto_display(bareiss(MATRICES[MATRIZ_POR_DEFECTO])[0])}» con un solo cálculo después de la pulsación con "
         "rebotes, y el visualizador pasó sus 15 comparaciones (ver sim/resultado_ghdl.txt). Para comprobar que las "
-        "pruebas detectan errores se probaron tres fallas en una copia del diseño: el XS3 sumando 2 en lugar de 3, el "
-        "último pivote sin el signo de los intercambios (matriz 2) y el antirrebote muestreando cada ciclo en lugar de "
-        "cada 1 ms. Las tres se detectaron."))
+        "pruebas detectan errores se probaron cuatro fallas en una copia del diseño: el XS3 sumando 2 en lugar de 3, "
+        "el último pivote sin el signo de los intercambios (matriz 2), el antirrebote muestreando cada ciclo en lugar "
+        "de cada 1 ms y la división sin invertir sq cuando t1 < t2 (matriz 3). Las cuatro se detectaron."))
     A(P("La síntesis genérica con GHDL ([c]ghdl --synth[/c]) terminó sin latches. En el procesador quedaron un "
-        "multiplicador y un sumador de 50 bits, además de los contadores; cada RAM se infirió como memoria de 32 × 32. "
+        "multiplicador y el sumador/restador de 50 bits, además de los contadores; cada RAM se infirió como memoria de 32 × 32. "
         "La estimación con Yosys para Artix-7 está en la sección 11.4."))
 
     # 16 ----------------------------------------------------------------------
@@ -577,12 +594,13 @@ def contenido():
         "intercambiada (en s4).",
         "[b]Dirección de la RAM.[/b] a(f,c) se guarda en f & c(1 downto 0), o en \"11\" & f para la columna 5. Así no "
         "hace falta multiplicar ni sumar para ubicar un elemento; quedan 7 de las 32 palabras sin usar.",
-        "[b]División con signo.[/b] En lugar de dividir valores absolutos, el residuo se acerca a 0 sumando o restando "
-        "p. Esto usa las dos operaciones del sumador/restador y termina porque la división de Bareiss es exacta.",
+        "[b]División por restas sucesivas.[/b] Se divide |t1 − t2| entre |p| solo con restas y el signo se aplica "
+        "al final (sq). Para no agregar estados, si t1 < t2 el estado s10 intercambia las entradas del restador y "
+        "calcula t2 − t1, y |p| se calcula en s2 como 0 − p. Así el sumador/restador siempre resta (op = 1).",
         "[b]Multiplicador.[/b] Es combinacional ([c]*[/c] de std_logic_signed sobre std_logic_vector, no el tipo "
         "signed). Si lo quieren por sumas y desplazamientos, hay que cambiarlo.",
-        "[b]Unidad de control Mealy.[/b] El ASM tiene cajas de salida condicional, así que la ROM de salida recibe 8 "
-        "condiciones además del estado (4096 × 41). Si el profesor quiere una UC Moore, cada caja condicional pasa a "
+        "[b]Unidad de control Mealy.[/b] El ASM tiene cajas de salida condicional, así que la ROM de salida recibe 9 "
+        "condiciones además del estado (8192 × 44). Si el profesor quiere una UC Moore, cada caja condicional pasa a "
         "ser un estado y la ROM de salida queda de 2^n palabras.",
         "[b]Banco de pivotes.[/b] b1 a b4 guardan los pivotes 1 a n − 1; el pivote n es el determinante, así que con "
         "dir_p = n la salida pivote muestra det.",

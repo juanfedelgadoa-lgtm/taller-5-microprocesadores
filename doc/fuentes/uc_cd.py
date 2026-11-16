@@ -43,7 +43,8 @@ SENALES_P = [
     ("i_n", "i = n", "Comparador de 3 bits"),
     ("j_n", "j = n", "Comparador de 3 bits"),
     ("k1_n", "k + 1 = n", "Incrementador de k y comparador de 3 bits"),
-    ("z_res", "residuo = 0", "Comparador de 50 bits de sr_a con cero"),
+    ("p_neg", "p < 0", "Bit 31 del registro p"),
+    ("neg", "resultado < 0", "Bit 49 de la salida del sumador/restador"),
     ("sqs", "sq ⊕ signo = 1", "Compuerta XOR de los registros sq y signo"),
 ]
 
@@ -57,6 +58,7 @@ CAMPOS_P = [
     ("ld_k", 1, "ld", "carga k", "1 = carga"),
     ("ld_piv", 1, "ld", "carga piv", "1 = carga"),
     ("ld_p", 1, "ld", "carga p", "1 = carga"),
+    ("ld_pabs", 1, "ld", "carga |p|", "1 = carga"),
     ("ld_aik", 1, "ld", "carga aik", "1 = carga"),
     ("ld_tmp", 1, "ld", "carga tmp", "1 = carga"),
     ("ld_signo", 1, "ld", "carga signo", "1 = carga"),
@@ -65,7 +67,6 @@ CAMPOS_P = [
     ("ld_mb", 1, "ld", "carga mul_b", "1 = carga"),
     ("ld_sra", 1, "ld", "carga sr_a", "1 = carga"),
     ("ld_srb", 1, "ld", "carga sr_b", "1 = carga"),
-    ("ld_op", 1, "ld", "carga op", "1 = carga"),
     ("ld_coc", 1, "ld", "carga cociente", "1 = carga"),
     ("ld_sq", 1, "ld", "carga sq", "1 = carga"),
     # selectores de los MUX de entrada de los registros
@@ -74,14 +75,15 @@ CAMPOS_P = [
     ("sel_j", 2, "sel", "MUX de j", "00 = 1 · 01 = j + 1 · 10 = k · 11 = k + 1"),
     ("sel_k", 1, "sel", "MUX de k", "0 = 1 · 1 = k + 1"),
     ("sel_p", 1, "sel", "MUX de p", "0 = 1 · 1 = piv"),
+    ("sel_pabs", 1, "sel", "MUX de |p|", "0 = p · 1 = resultado (0 − p)"),
     ("sel_signo", 1, "sel", "MUX de signo", "0 = 0 · 1 = not signo"),
     ("sel_det", 2, "sel", "MUX de det", "00 = 0 · 01 = cociente · 10 = resultado (0 − cociente)"),
     ("sel_ma", 1, "sel", "MUX de mul_a", "0 = piv · 1 = aik"),
     ("sel_mb", 1, "sel", "MUX de mul_b", "0 = qa · 1 = qb"),
-    ("sel_sra", 1, "sel", "MUX de sr_a", "0 = producto · 1 = resultado"),
-    ("sel_srb", 2, "sel", "MUX de sr_b", "00 = producto · 01 = p · 10 = cociente"),
-    ("sel_op", 1, "sel", "MUX de op", "0 = 1 (resta) · 1 = not (resultado(49) ⊕ p(31))"),
+    ("sel_sra", 2, "sel", "MUX de sr_a", "00 = producto · 01 = resultado · 10 = sr_b · 11 = 0"),
+    ("sel_srb", 3, "sel", "MUX de sr_b", "000 = producto · 001 = sr_a · 010 = |p| · 011 = cociente · 100 = piv"),
     ("sel_coc", 1, "sel", "MUX de cociente", "0 = 0 · 1 = cociente + 1"),
+    ("sel_sq", 1, "sel", "MUX de sq", "0 = p(31) · 1 = not sq"),
     # memorias RAM A y RAM B y banco de pivotes
     ("we", 1, "ram", "escritura de RAM A y RAM B", "1 = escribe"),
     ("sel_w", 1, "ram", "dirección de escritura", "0 = a(i,j) · 1 = a(k,j)"),
@@ -103,18 +105,18 @@ REGISTROS_P = [
     ("j", 3, "ld_j", "sel_j", None, "Columna"),
     ("k", 3, "ld_k", "sel_k", None, "Paso de Bareiss"),
     ("piv", 32, "ld_piv", None, "qb", "Pivote actual a(k,k)"),
-    ("p", 32, "ld_p", "sel_p", None, "Pivote anterior (divisor)"),
+    ("p", 32, "ld_p", "sel_p", None, "Pivote anterior"),
+    ("|p| (pabs)", 32, "ld_pabs", "sel_pabs", None, "Divisor de la división"),
     ("aik", 32, "ld_aik", None, "qa", "a(i,k) de la fila i"),
     ("tmp", 32, "ld_tmp", None, "qa", "Intercambio de filas"),
     ("signo", 1, "ld_signo", "sel_signo", None, "Paridad de intercambios de filas"),
     ("det (deter)", 32, "ld_det", "sel_det", None, "Determinante (salida det)"),
     ("mul_a", 25, "ld_ma", "sel_ma", None, "Entrada A del multiplicador"),
     ("mul_b", 25, "ld_mb", "sel_mb", None, "Entrada B del multiplicador"),
-    ("sr_a", 50, "ld_sra", "sel_sra", None, "Entrada A del sumador/restador: t1 y luego el residuo"),
-    ("sr_b", 50, "ld_srb", "sel_srb", None, "Entrada B del sumador/restador: t2, p y cociente"),
-    ("op", 1, "ld_op", "sel_op", None, "Operación: 0 suma, 1 resta"),
+    ("sr_a", 50, "ld_sra", "sel_sra", None, "Entrada A del restador: t1 y luego el residuo"),
+    ("sr_b", 50, "ld_srb", "sel_srb", None, "Entrada B del restador: t2, |p|, cociente y piv"),
     ("cociente", 32, "ld_coc", "sel_coc", None, "División: cociente (contador)"),
-    ("sq", 1, "ld_sq", None, "resultado(49) ⊕ p(31)", "Signo del cociente"),
+    ("sq", 1, "ld_sq", "sel_sq", None, "Signo del cociente"),
 ]
 
 REGISTROS_V = [
@@ -140,8 +142,9 @@ FILAS_P = {
              ld_i=1, sel_i="00", ld_j=1, sel_j="01"),
            F({"i_n": 1, "j_n": 1}, "s2", we=1, sel_w="0", sel_data="00", ld_dira=1, sel_dira="1",
              ld_k=1, sel_k="0", ld_j=1, sel_j="00", ld_p=1, sel_p="0", ld_signo=1, sel_signo="0")],
-    "s2": [F({"z_b": 1}, "s3", ld_piv=1, ld_i=1, sel_i="10"),
-           F({"z_b": 0}, "s6", ld_piv=1, ld_i=1, sel_i="10", we_banco=1)],
+    "s2": [F({"p_neg": pn, "z_b": zb}, "s3" if zb else "s6", ld_piv=1, ld_i=1, sel_i="10", ld_pabs=1,
+             sel_pabs="1" if pn else "0", **({} if zb else {"we_banco": 1}))
+           for pn in (1, 0) for zb in (1, 0)],
     "s3": [F({"z_a": 0}, "s4", ld_signo=1, sel_signo="1"),
            F({"z_a": 1, "i_n": 1}, "s13", ld_det=1, sel_det="00"),
            F({"z_a": 1, "i_n": 0}, "s3", ld_i=1, sel_i="01")],
@@ -150,17 +153,17 @@ FILAS_P = {
            F({"j_n": 0}, "s4", we=1, sel_w="1", sel_data="10", ld_j=1, sel_j="01")],
     "s6": [F({}, "s7", ld_aik=1, ld_j=1, sel_j="11")],
     "s7": [F({}, "s8", ld_ma=1, sel_ma="0", ld_mb=1, sel_mb="0")],
-    "s8": [F({}, "s9", ld_sra=1, sel_sra="0", ld_ma=1, sel_ma="1", ld_mb=1, sel_mb="1")],
-    "s9": [F({}, "s10", ld_srb=1, sel_srb="00", ld_op=1, sel_op="0")],
-    "s10": [F({}, "s11", ld_sra=1, sel_sra="1", ld_srb=1, sel_srb="01", ld_sq=1, ld_op=1, sel_op="1",
-              ld_coc=1, sel_coc="0")],
-    "s11": [F({"z_res": 0}, "s11", ld_sra=1, sel_sra="1", ld_coc=1, sel_coc="1"),
-            F({"z_res": 1}, "s12", ld_srb=1, sel_srb="10", ld_op=1, sel_op="0")],
+    "s8": [F({}, "s9", ld_sra=1, sel_sra="00", ld_ma=1, sel_ma="1", ld_mb=1, sel_mb="1")],
+    "s9": [F({}, "s10", ld_srb=1, sel_srb="000", ld_sq=1, sel_sq="0", ld_coc=1, sel_coc="0")],
+    "s10": [F({"neg": 1}, "s10", ld_sra=1, sel_sra="10", ld_srb=1, sel_srb="001", ld_sq=1, sel_sq="1"),
+            F({"neg": 0}, "s11", ld_sra=1, sel_sra="01", ld_srb=1, sel_srb="010")],
+    "s11": [F({"neg": 0}, "s11", ld_sra=1, sel_sra="01", ld_coc=1, sel_coc="1"),
+            F({"neg": 1}, "s12", ld_sra=1, sel_sra="11", ld_srb=1, sel_srb="011")],
     "s12": [F({"j_n": 0}, "s7", we=1, sel_w="0", sel_data="11", ld_j=1, sel_j="01"),
             F({"j_n": 1, "i_n": 0}, "s6", we=1, sel_w="0", sel_data="11", ld_i=1, sel_i="01",
               ld_j=1, sel_j="10"),
             F({"j_n": 1, "i_n": 1, "k1_n": 0}, "s2", we=1, sel_w="0", sel_data="11", ld_p=1, sel_p="1",
-              ld_k=1, sel_k="1", ld_j=1, sel_j="11"),
+              ld_k=1, sel_k="1", ld_j=1, sel_j="11", ld_sra=1, sel_sra="11", ld_srb=1, sel_srb="100"),
             F({"j_n": 1, "i_n": 1, "k1_n": 1, "sqs": 1}, "s13", we=1, sel_w="0", sel_data="11",
               ld_det=1, sel_det="10"),
             F({"j_n": 1, "i_n": 1, "k1_n": 1, "sqs": 0}, "s13", we=1, sel_w="0", sel_data="11",
@@ -341,8 +344,8 @@ def simular_procesador(rom, max_ciclos=50_000_000):
     """rom: lista de 32 palabras de 6 bits. Devuelve (det, pivotes, ciclos), donde
     ciclos cuenta desde el flanco en que s0 ve inicio = 1 hasta el flanco en
     que la UC entra a s13. El CD solo hace lo que dice la palabra de control."""
-    r = dict(dira=0, n=0, i=0, j=0, k=0, piv=0, p=0, aik=0, tmp=0, signo=0, det=0, ma=0, mb=0,
-             sra=0, srb=0, op=1, coc=0, sq=0)
+    r = dict(dira=0, n=0, i=0, j=0, k=0, piv=0, p=0, pabs=0, aik=0, tmp=0, signo=0, det=0, ma=0, mb=0,
+             sra=0, srb=0, coc=0, sq=0)
     ram = [None] * 32                       # RAM A y RAM B tienen el mismo contenido
     banco = [0] * 5                         # b1..b4
     st = "s0"
@@ -352,14 +355,11 @@ def simular_procesador(rom, max_ciclos=50_000_000):
         qa, qb = ram[dir_ram(r["i"], r["j"])], ram[dir_ram(r["k"], r["j"])]
         a6 = rom[r["dira"]]
         producto = (sext(r["ma"], 25) * sext(r["mb"], 25)) & M50
-        if r["op"]:
-            resultado = (r["sra"] - r["srb"]) & M50
-        else:
-            resultado = (r["sra"] + r["srb"]) & M50
+        resultado = (r["sra"] - r["srb"]) & M50          # op = 1: solo resta
         senal = dict(inicio=inicio, z_b=None if qb is None else int(qb == 0),
                      z_a=None if qa is None else int(qa == 0),
                      i_n=int(r["i"] == r["n"]), j_n=int(r["j"] == r["n"]),
-                     k1_n=int(((r["k"] + 1) & M3) == r["n"]), z_res=int(r["sra"] == 0),
+                     k1_n=int(((r["k"] + 1) & M3) == r["n"]), p_neg=r["p"] >> 31, neg=resultado >> 49,
                      sqs=r["sq"] ^ r["signo"])
         for k_ in {k for c, _, _ in filas[st] for k in c}:
             if senal[k_] is None:
@@ -386,18 +386,20 @@ def simular_procesador(rom, max_ciclos=50_000_000):
         carga("k", "ld_k", lambda: {"0": 1, "1": (r["k"] + 1) & M3}[campo(pcc, "sel_k")])
         carga("piv", "ld_piv", lambda: leer(qb))
         carga("p", "ld_p", lambda: {"0": 1, "1": r["piv"]}[campo(pcc, "sel_p")])
+        carga("pabs", "ld_pabs", lambda: {"0": r["p"], "1": resultado & M32}[campo(pcc, "sel_pabs")])
         carga("aik", "ld_aik", lambda: leer(qa))
         carga("tmp", "ld_tmp", lambda: leer(qa))
         carga("signo", "ld_signo", lambda: {"0": 0, "1": r["signo"] ^ 1}[campo(pcc, "sel_signo")])
         carga("det", "ld_det", lambda: {"00": 0, "01": r["coc"], "10": resultado & M32}[campo(pcc, "sel_det")])
         carga("ma", "ld_ma", lambda: {"0": r["piv"] & M25, "1": r["aik"] & M25}[campo(pcc, "sel_ma")])
         carga("mb", "ld_mb", lambda: {"0": leer(qa) & M25, "1": leer(qb) & M25}[campo(pcc, "sel_mb")])
-        carga("sra", "ld_sra", lambda: {"0": producto, "1": resultado}[campo(pcc, "sel_sra")])
-        carga("srb", "ld_srb", lambda: {"00": producto, "01": sext(r["p"], 32) & M50,
-                                        "10": sext(r["coc"], 32) & M50}[campo(pcc, "sel_srb")])
-        carga("op", "ld_op", lambda: {"0": 1, "1": 1 - ((resultado >> 49) ^ (r["p"] >> 31))}[campo(pcc, "sel_op")])
+        carga("sra", "ld_sra", lambda: {"00": producto, "01": resultado, "10": r["srb"],
+                                        "11": 0}[campo(pcc, "sel_sra")])
+        carga("srb", "ld_srb", lambda: {"000": producto, "001": r["sra"], "010": sext(r["pabs"], 32) & M50,
+                                        "011": sext(r["coc"], 32) & M50,
+                                        "100": sext(r["piv"], 32) & M50}[campo(pcc, "sel_srb")])
         carga("coc", "ld_coc", lambda: {"0": 0, "1": (r["coc"] + 1) & M32}[campo(pcc, "sel_coc")])
-        carga("sq", "ld_sq", lambda: (resultado >> 49) ^ (r["p"] >> 31))
+        carga("sq", "ld_sq", lambda: {"0": r["p"] >> 31, "1": r["sq"] ^ 1}[campo(pcc, "sel_sq")])
 
         if pcc["we"] == "1":
             fila = r["k"] if campo(pcc, "sel_w") == "1" else r["i"]

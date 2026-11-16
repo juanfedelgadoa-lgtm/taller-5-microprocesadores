@@ -7,33 +7,35 @@ antirrebote              LUT=    5 FF=  12 CARRY4=  0 DSP48E1=0 RAM32M=0
 det_bareiss              LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
 divisor_frecuencia       LUT=   21 FF=  27 CARRY4=  8 DSP48E1=0 RAM32M=0
 multiplicador            LUT=    0 FF=   0 CARRY4=  0 DSP48E1=2 RAM32M=0
-procesador_bareiss       LUT=  601 FF= 497 CARRY4= 13 DSP48E1=0 RAM32M=0
+procesador_bareiss       LUT=  762 FF= 528 CARRY4= 13 DSP48E1=0 RAM32M=0
 ram_memory               LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=6
 rom_matriz               LUT=    5 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
 sumador_restador         LUT=   50 FF=   0 CARRY4= 26 DSP48E1=0 RAM32M=0
 visualizador             LUT=  223 FF= 132 CARRY4= 13 DSP48E1=0 RAM32M=0
-TOTAL (jerarquico)       LUT=  905 FF= 668 CARRY4= 60 DSP48E1=2 RAM32M=12
+TOTAL (jerarquico)       LUT= 1066 FF= 699 CARRY4= 60 DSP48E1=2 RAM32M=12
 
 --- Diseno aplanado (synth_xilinx -flatten) ---
-     1714 cells
+     1798 cells (sin contar $scopeinfo)
         1   BUFG
-       60   CARRY4
+       47   CARRY4
         2   DSP48E1
-      665   FDCE
-        3   FDPE
+      697   FDCE
+        2   FDPE
         6   IBUF
-       60   INV
-      153   LUT2
-      168   LUT3
-      185   LUT4
-      282   LUT5
-       89   LUT6
+       10   INV
+      215   LUT2
+      245   LUT3
+      180   LUT4
+      315   LUT5
+       47   LUT6
        19   OBUF
        12   RAM32M
-
+   LUT = 1002, FF = 699
 
 --- Comparacion con la version de 19 estados, aplanado ---
 anterior: LUT=1022 FF=780 CARRY4=47 DSP48E1=2 RAM32M=12
-actual:   LUT=877  FF=668 CARRY4=60 DSP48E1=2 RAM32M=12
-(Yosys no junta la suma y la resta de sumador_restador en una sola cadena de
- acarreo; por eso CARRY4 sube. XST puede reconocerlo como un solo sumador/restador.)
+actual:   LUT=1002 FF=699 CARRY4=47 DSP48E1=2 RAM32M=12
+(La division es solo por restas sucesivas: op = 1 siempre. Sin aplanar,
+ sumador_restador conserva la suma y la resta (26 CARRY4); al aplanar, Yosys
+ ve op constante y deja solo el restador. XST hace lo mismo si aplana la
+ jerarquia; si la conserva, queda el sumador/restador completo.)
