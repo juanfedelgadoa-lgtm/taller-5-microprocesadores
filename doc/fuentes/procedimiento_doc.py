@@ -255,8 +255,8 @@ def seccion_procesador(h, fig):
     A(P("9.4 Unidades funcionales, memorias y fuentes de sus entradas", "h2"))
     A(tabla([
         ["Bloque", "Entrada", "Fuente (estados)"],
-        ["Multiplicador 25 × 25 → 50", "a, b", "Registros mul_a y mul_b (cable directo)"],
-        ["Sumador/restador 50 bits", "A, B, op", "Registros sr_a, sr_b y op (cable directo)"],
+        ["Multiplicador 25 × 25 → 50 (entidad multiplicador, U_MUL)", "a, b", "Registros mul_a y mul_b (cable directo)"],
+        ["Sumador/restador 50 bits (entidad sumador_restador, U_SR)", "a, b, op", "Registros sr_a, sr_b y op (cable directo)"],
         ["ROM 32 × 6", "dira", "Registro dira (cable directo)"],
         ["RAM A (32 × 32)", "dirección de lectura", "dir_ij: siempre lee a(i,j) → qa"],
         ["RAM B (32 × 32)", "dirección de lectura", "dir_kj: siempre lee a(k,j) → qb"],
@@ -482,8 +482,8 @@ def seccion_sintesis(h, fig):
     A(P("11.1 Dónde mirar", "h2"))
     V(viñetas([
         "[b]View RTL Schematic[/b]: el tope det_bareiss con sus 4 bloques (U_FREC, U_ANTI, U_PROC, U_VIS). Dentro de "
-        "U_PROC aparecen U_ROM, U_RAM_A y U_RAM_B, y la lógica del ASM: la FSM, los registros, el multiplicador, el "
-        "sumador/restador, los comparadores y los MUX. El esquemático no va a ser tan pequeño como el de ASM_Sumax: el "
+        "U_PROC aparecen U_ROM, U_RAM_A, U_RAM_B, U_MUL (multiplicador) y U_SR (sumador_restador), y la lógica del "
+        "ASM: la FSM, los registros, los comparadores y los MUX. El esquemático no va a ser tan pequeño como el de ASM_Sumax: el "
         "algoritmo maneja una matriz de 5 × 5, una división y un banco de pivotes.",
         "[b]Synthesis Report → HDL Synthesis[/b]: una línea por macro inferida («Found 32-bit register for signal "
         "<piv>», «Found 25x25-bit multiplier», «Found finite state machine <FSM_0> for signal <st>»…). Al final, "
@@ -513,8 +513,8 @@ def seccion_sintesis(h, fig):
         ["Macro", "Procesador", "Visualizador y demás"],
         ["RAMs", "2 × 32x32-bit dual-port, escritura síncrona y lectura asíncrona → RAM distribuida (LUT)", "—"],
         ["ROMs", "rom_matriz 32x6", "Decodificador de 7 segmentos y de ánodos"],
-        ["Multipliers", "1 × 25x25-bit con signo (producto) → 2 DSP48E1 (el DSP48E1 multiplica 25 × 18)", "—"],
-        ["Adders/Subtractors", "resultado: sumador/restador de 50 bits (XST puede listarlo como un addsub o como un "
+        ["Multipliers", "1 × 25x25-bit con signo (entidad multiplicador) → 2 DSP48E1 (el DSP48E1 multiplica 25 × 18)", "—"],
+        ["Adders/Subtractors", "entidad sumador_restador de 50 bits (XST puede listarlo como un addsub o como un "
                                "sumador y un restador con un MUX); incrementadores dira + 1 (5), i + 1, j + 1, "
                                "k + 1 (3), cociente + 1 (32)",
          "visualizador: 0 − val (32), dígito + 3 (4), cont + 1 (5), d + 1 (4), dsel + 1 (3); divisor: 17 y 9 bits"],
@@ -540,9 +540,9 @@ def seccion_sintesis(h, fig):
         ["BUFG", "1", "32", "3 %"],
     ], [2.2, 2.2, 1.2, 1.3]))
     A(Spacer(1, 4))
-    A(P("Por bloque (Yosys): procesador_bareiss ≈ 650 LUT y 497 flip-flops, más 2 DSP48E1; cada RAM 6 RAM32M; "
-        "visualizador ≈ 220 LUT y 132 flip-flops. Comparado con la versión anterior del procesador (19 estados y 8 "
-        "entidades), el diseño completo bajó de 1 022 a 877 LUT y de 780 a 668 flip-flops."))
+    A(P("Por bloque (Yosys): el ASM de procesador_bareiss ≈ 600 LUT y 497 flip-flops; multiplicador 2 DSP48E1; "
+        "sumador_restador 50 LUT; cada RAM 6 RAM32M; visualizador ≈ 220 LUT y 132 flip-flops. Comparado con la versión "
+        "anterior del procesador (19 estados), el diseño completo bajó de 1 022 a 877 LUT y de 780 a 668 flip-flops."))
     A(P("11.5 Tiempos", "h2"))
     A(P("El reloj es de 100 MHz (TIMESPEC de 10 ns en el .ucf). Caminos candidatos a ser el crítico:"))
     V(viñetas([

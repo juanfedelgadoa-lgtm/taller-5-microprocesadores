@@ -1,5 +1,6 @@
 Simulacion con GHDL 4.1.0 (ghdl -fsynopsys -fexplicit)
 Fecha: 2026-11-07. Procesador de Bareiss en alto nivel: un solo process, 14 estados (type estados_asm).
+La RAM (RAM_memory), el multiplicador y el sumador/restador son entidades aparte.
 
 == sim/probar_matrices.py --todas : sim/tb_procesador.vhd con cada matriz de prueba en la ROM
 
@@ -173,6 +174,6 @@ Mutacion 3, antirrebote: muestrea cada ciclo y no cada 1 ms -> tb_det_bareiss: f
 
 == ghdl --synth det_bareiss (sintesis generica, no reemplaza a ISE)
 Sin latches. RAM inferida: ram_blk 32 x 32 bits (dos instancias, RAM A y RAM B).
-procesador_bareiss: 1 multiplicador (25 x 25) y 1 sumador/restador de 50 bits
-  (resultado <= sr_a + sr_b when op = '0' else sr_a - sr_b), mas los contadores.
+procesador_bareiss: una instancia de multiplicador (25 x 25) y una de sumador_restador
+  (50 bits), mas los contadores.
 visualizador: restador 0 - val, sumador +3, contadores cont, d y dsel.

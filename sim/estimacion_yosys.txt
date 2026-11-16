@@ -6,14 +6,16 @@ referencia de orden de magnitud. ISE (XST) puede dar valores distintos.
 antirrebote              LUT=    5 FF=  12 CARRY4=  0 DSP48E1=0 RAM32M=0
 det_bareiss              LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
 divisor_frecuencia       LUT=   21 FF=  27 CARRY4=  8 DSP48E1=0 RAM32M=0
-procesador_bareiss       LUT=  648 FF= 497 CARRY4= 39 DSP48E1=2 RAM32M=0
+multiplicador            LUT=    0 FF=   0 CARRY4=  0 DSP48E1=2 RAM32M=0
+procesador_bareiss       LUT=  601 FF= 497 CARRY4= 13 DSP48E1=0 RAM32M=0
 ram_memory               LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=6
 rom_matriz               LUT=    5 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
+sumador_restador         LUT=   50 FF=   0 CARRY4= 26 DSP48E1=0 RAM32M=0
 visualizador             LUT=  223 FF= 132 CARRY4= 13 DSP48E1=0 RAM32M=0
-TOTAL (jerarquico)       LUT=  902 FF= 668 CARRY4= 60 DSP48E1=2 RAM32M=12
+TOTAL (jerarquico)       LUT=  905 FF= 668 CARRY4= 60 DSP48E1=2 RAM32M=12
 
 --- Diseno aplanado (synth_xilinx -flatten) ---
-     1712 cells
+     1714 cells
         1   BUFG
        60   CARRY4
         2   DSP48E1
@@ -30,8 +32,8 @@ TOTAL (jerarquico)       LUT=  902 FF= 668 CARRY4= 60 DSP48E1=2 RAM32M=12
        12   RAM32M
 
 
---- Comparacion con la version anterior (19 estados, 8 entidades en el procesador), aplanado ---
+--- Comparacion con la version de 19 estados, aplanado ---
 anterior: LUT=1022 FF=780 CARRY4=47 DSP48E1=2 RAM32M=12
 actual:   LUT=877  FF=668 CARRY4=60 DSP48E1=2 RAM32M=12
-(Yosys no junta la suma y la resta de 'resultado' en una sola cadena de acarreo;
- por eso CARRY4 sube. XST puede reconocerlo como un solo sumador/restador.)
+(Yosys no junta la suma y la resta de sumador_restador en una sola cadena de
+ acarreo; por eso CARRY4 sube. XST puede reconocerlo como un solo sumador/restador.)

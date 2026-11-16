@@ -11,7 +11,7 @@ El diseño tiene cuatro bloques:
 |---|---|---|
 | Antirrebote | `src/antirrebote.vhd` | El único antirrebote, para el botón de inicio |
 | Divisor de frecuencia | `src/divisor_frecuencia.vhd` | Pulso de 1 ms y onda de 1 s (reloj de 100 MHz) |
-| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss en alto nivel (un solo process, 14 estados), como los ejemplos del profesor. Usa la ROM, dos RAM del modelo del profesor, un banco de pivotes y las dos únicas unidades funcionales: multiplicador y sumador/restador. No hay ALU. |
+| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss en alto nivel (un solo process, 14 estados), como los ejemplos del profesor. Usa la ROM, dos RAM del modelo del profesor, un banco de pivotes y las dos únicas unidades funcionales: multiplicador y sumador/restador. La RAM, el multiplicador y el sumador/restador son entidades aparte (`RAM_memory`, `multiplicador`, `sumador_restador`). No hay ALU. |
 | Visualizador | `src/visualizador.vhd` | ASM del XS3 (6 estados, uno por paso) y display de 8 dígitos, en el mismo archivo. Trabaja en paralelo con el procesador y tiene sus propias unidades. |
 
 `src/det_bareiss.vhd` es el tope para ISE: solo conecta los cuatro bloques

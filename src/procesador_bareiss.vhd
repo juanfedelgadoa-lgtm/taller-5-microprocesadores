@@ -4,9 +4,11 @@
 --
 -- PROCESADOR DE BAREISS (determinante de una matriz de 2x2 a 5x5)
 --
--- Este archivo tiene tres entidades:
+-- Este archivo tiene cinco entidades:
 --   rom_matriz          ROM con la matriz (se cambia para cada evaluacion)
 --   RAM_memory          RAM del curso (modelo del profesor, sin cambios)
+--   multiplicador       unidad funcional 1: multiplicador 25 x 25 con signo
+--   sumador_restador    unidad funcional 2: sumador/restador de 50 bits
 --   procesador_bareiss  ASM de Bareiss descrito en alto nivel, con el mismo
 --                       estilo de los ejemplos ASM_Sumax y ASM_contador_unos
 ----------------------------------------------------------------------------------
@@ -114,6 +116,53 @@ begin
 
 end rtl;
 
+
+----------------------------------------------------------------------------------
+-- UNIDAD FUNCIONAL 1: MULTIPLICADOR CON SIGNO 25 x 25 -> 50 bits (combinacional)
+-- 25 bits alcanzan: los operandos son determinantes de submatrices de hasta
+-- 4 x 4, menores que 2^24 en valor absoluto.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.std_logic_signed.all;
+
+entity multiplicador is
+    Port ( a : in  STD_LOGIC_VECTOR (24 downto 0);
+           b : in  STD_LOGIC_VECTOR (24 downto 0);
+           p : out STD_LOGIC_VECTOR (49 downto 0));
+end multiplicador;
+
+architecture Behavioral of multiplicador is
+begin
+
+p <= a * b;
+
+end Behavioral;
+
+
+----------------------------------------------------------------------------------
+-- UNIDAD FUNCIONAL 2: SUMADOR/RESTADOR DE 50 bits (combinacional)
+--   op = '0' : s = a + b
+--   op = '1' : s = a - b
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use ieee.std_logic_signed.all;
+
+entity sumador_restador is
+    Port ( a  : in  STD_LOGIC_VECTOR (49 downto 0);
+           b  : in  STD_LOGIC_VECTOR (49 downto 0);
+           op : in  STD_LOGIC;
+           s  : out STD_LOGIC_VECTOR (49 downto 0));
+end sumador_restador;
+
+architecture Behavioral of sumador_restador is
+begin
+
+s <= a + b when op = '0' else a - b;
+
+end Behavioral;
+
 ----------------------------------------------------------------------------------
 -- PROCESADOR DE BAREISS
 --
@@ -122,9 +171,9 @@ end rtl;
 -- Un solo ASM (case st is), igual que en los ejemplos del curso. Cada estado
 -- hace las operaciones de su caja en el diagrama ASM.
 --
--- Unidades funcionales (una de cada una):
---   multiplicador     producto  = mul_a * mul_b
---   sumador/restador  resultado = sr_a + sr_b  (op = 0)  o  sr_a - sr_b  (op = 1)
+-- Unidades funcionales (una instancia de cada entidad):
+--   U_MUL : multiplicador     producto  = mul_a * mul_b
+--   U_SR  : sumador_restador  resultado = sr_a + sr_b  (op = 0)  o  sr_a - sr_b  (op = 1)
 -- Los estados cargan las entradas (mul_a, mul_b, sr_a, sr_b, op) y en el estado
 -- siguiente toman el resultado.
 --
@@ -162,6 +211,19 @@ component RAM_memory
            rd_add : in  std_logic_vector (4 downto 0);
            we     : in  std_logic;
            q      : out std_logic_vector (31 downto 0));
+end component;
+
+component multiplicador
+    Port ( a : in  STD_LOGIC_VECTOR (24 downto 0);
+           b : in  STD_LOGIC_VECTOR (24 downto 0);
+           p : out STD_LOGIC_VECTOR (49 downto 0));
+end component;
+
+component sumador_restador
+    Port ( a  : in  STD_LOGIC_VECTOR (49 downto 0);
+           b  : in  STD_LOGIC_VECTOR (49 downto 0);
+           op : in  STD_LOGIC;
+           s  : out STD_LOGIC_VECTOR (49 downto 0));
 end component;
 
 type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13);
@@ -225,8 +287,8 @@ data   <= SXT(a, 32)             when st = s1 else     -- copia de la ROM
 ------------------------------------------------------------------------------
 -- Unidades funcionales
 ------------------------------------------------------------------------------
-producto  <= mul_a * mul_b;
-resultado <= sr_a + sr_b when op = '0' else sr_a - sr_b;
+U_MUL : multiplicador    port map (a => mul_a, b => mul_b, p => producto);
+U_SR  : sumador_restador port map (a => sr_a, b => sr_b, op => op, s => resultado);
 
 ------------------------------------------------------------------------------
 -- Salidas

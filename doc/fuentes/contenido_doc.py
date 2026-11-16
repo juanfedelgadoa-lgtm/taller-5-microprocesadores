@@ -101,7 +101,7 @@ def contenido():
         "[b]procesador_bareiss.vhd[/b]: el ASM de Bareiss en alto nivel, como los ejemplos ASM_Sumax y "
         "ASM_contador_unos: un solo process con [c]case st is[/c] y 14 estados. Usa la ROM con la matriz, dos RAM del "
         "modelo del profesor, un banco de pivotes y las [b]dos únicas unidades funcionales[/b]: un multiplicador y un "
-        "sumador/restador. No hay ALU.",
+        "sumador/restador. La RAM, el multiplicador y el sumador/restador son entidades aparte. No hay ALU.",
         "[b]visualizador.vhd[/b]: en un mismo archivo, el ASM del algoritmo XS3 y el display de 8 dígitos. Es un ASM "
         "aparte que trabaja en paralelo con el de Bareiss y tiene sus propias unidades (no comparte las del procesador).",
     ]))
@@ -127,8 +127,9 @@ def contenido():
          "No hay [c]variable[/c], [c]function[/c] ni lazos [c]for[/c]/[c]while[/c]. Las repeticiones las hace el ASM, "
          "un paso por ciclo de reloj, con contadores."],
         ["Unidades funcionales del procesador",
-         "Una línea para cada una: [c]producto <= mul_a * mul_b;[/c] (25 × 25 → 50) y [c]resultado <= sr_a + sr_b "
-         "when op = '0' else sr_a - sr_b;[/c] (50 bits). Los estados cargan sus entradas. El visualizador tiene sus "
+         "Dos entidades con una instancia cada una: [c]multiplicador[/c] (U_MUL, 25 × 25 → 50) y "
+         "[c]sumador_restador[/c] (U_SR, 50 bits, op = 0 suma y op = 1 resta). La RAM es la entidad RAM_memory del "
+         "profesor (dos instancias). Los estados cargan las entradas de las unidades. El visualizador tiene sus "
          "propias unidades (restador 0 − val, sumador +3, comparador > 4)."],
         ["Alto nivel, como los ejemplos",
          "Cada estado del process hace las operaciones de su caja ASM (por ejemplo [c]cociente <= cociente + 1;[/c]). "
@@ -146,7 +147,8 @@ def contenido():
          "en complemento a 2. Elementos por columnas: a11, a21, …, an1, a12, …"],
         ["La ROM hace parte de la arquitectura", "Está dentro del procesador; no entra por puertos."],
         ["Multiplicador, sumador/restador y división por restas sucesivas",
-         "Señales producto y resultado (una unidad de cada una); la división son los estados s10 y s11."],
+         "Entidades multiplicador y sumador_restador (una instancia de cada una); la división son los estados s10 y "
+         "s11."],
         ["Memoria RAM del curso", "Dos instancias de [c]RAM_memory[/c] (modelo del profesor, 32 × 32)."],
         ["Pivotes en un banco de registros, visibles con los switches",
          "Registros b1 a b4: dir_p = k (SW2..SW0) elige el pivote; con dir_p = n sale el determinante, que es el "
@@ -157,8 +159,8 @@ def contenido():
     ], [2.2, 4.7]))
     A(KeepTogether([P("Archivos del repositorio", "h2"), tabla([
         ["Archivo", "Contenido"],
-        ["src/procesador_bareiss.vhd", "rom_matriz (la matriz), RAM_memory (modelo del profesor) y "
-                                       "procesador_bareiss (el ASM de Bareiss, un solo process)."],
+        ["src/procesador_bareiss.vhd", "rom_matriz (la matriz), RAM_memory (modelo del profesor), multiplicador, "
+                                       "sumador_restador y procesador_bareiss (el ASM de Bareiss, un solo process)."],
         ["src/visualizador.vhd", "ASM XS3 y display de 8 dígitos."],
         ["src/antirrebote.vhd", "Antirrebote del botón de inicio."],
         ["src/divisor_frecuencia.vhd", "Pulso de 1 ms y onda de 1 s (reloj de 100 MHz)."],
