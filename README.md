@@ -11,19 +11,28 @@ El diseño tiene cuatro bloques:
 |---|---|---|
 | Antirrebote | `src/antirrebote.vhd` | El único antirrebote, para el botón de inicio |
 | Divisor de frecuencia | `src/divisor_frecuencia.vhd` | Pulso de 1 ms y onda de 1 s (reloj de 100 MHz) |
-| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss en alto nivel, como `ASM_Sumax` y `ASM_contador_unos`: una sola entidad, un solo process con `case st is` (13 estados) y las operaciones escritas en cada estado. No tiene `component` ni `port map`: la ROM (`with dira select`) y las dos RAM (modelo de RAM del curso) están dentro de la arquitectura. El ASM respeta el hardware del taller: una multiplicación por estado (s8, s9), una resta de datos por estado (s10, s11) y la división por restas sucesivas de p, sin valor absoluto (s11). |
+| Procesador de Bareiss | `src/procesador_bareiss.vhd`, `src/RAM_memory.vhd` | ASM de Bareiss en alto nivel, como `ASM_Sumax` y `ASM_contador_unos`: un solo process con `case st is` (14 estados) y las operaciones escritas en cada estado. La ROM es un `with dira select` dentro de la arquitectura. Las dos RAM son el modelo del curso sin cambios (`RAM_memory.vhd`); son el único `port map` del procesador. El multiplicador siempre es `x * y` y el restador siempre es `r - s`, sobre los mismos registros, así la síntesis arma una sola unidad de cada una. La división es por restas sucesivas de p, sin valor absoluto. |
 | Visualizador | `src/visualizador.vhd` | ASM del XS3 (6 estados, uno por paso) y display de 8 dígitos, en el mismo archivo. Trabaja en paralelo con el procesador y tiene sus propias unidades. |
 
 `src/det_bareiss.vhd` es el tope para ISE: solo conecta los cuatro bloques
 (ISE lo necesita para asignar los pines con `src/nexys_a7.ucf`).
 
 Solo se usan `std_logic` y `std_logic_vector` (no hay tipos `signed`, `unsigned`
-ni `integer` en el diseño). Las excepciones salen del curso: el arreglo de la RAM
-es el del modelo del profesor (32 × 32) y los estados de cada ASM se declaran
-como en `ASM_Sumax` y `ASM_contador_unos`:
+ni `integer`, ni funciones de conversión como `SXT` o `conv_integer`, fuera de la
+RAM). Librerías:
+
+- `std_logic_unsigned`: solo en `src/RAM_memory.vhd` (modelo del profesor).
+- `std_logic_signed`: procesador, visualizador y divisor de frecuencia, porque los
+  datos de la matriz son con signo (complemento a 2). Da `+`, `-`, `*` y las
+  comparaciones sobre `std_logic_vector`.
+- El antirrebote y el tope solo usan `std_logic_1164`.
+
+Las excepciones de tipos salen del curso: el arreglo de la RAM es el del modelo
+del profesor (32 × 32) y los estados de cada ASM se declaran como en `ASM_Sumax`
+y `ASM_contador_unos`:
 
 ```vhdl
-type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12);
+type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13);
 signal st : estados_asm;
 ```
 
@@ -33,9 +42,9 @@ verificación de sus reglas, simulación y código):
 
 > **Pendiente:** el PDF, las figuras de `doc/figuras/` y las tablas de la UC y
 > el CD (`doc/fuentes/uc_cd.py`, `sim/resultado_modelo_uc_cd.txt`) todavía
-> describen la versión anterior del procesador (14 estados, con entidades y
-> port map). El VHDL de `src/`, `sim/resultado_ghdl.txt` y
-> `sim/estimacion_yosys.txt` ya son de la versión nueva de 13 estados. El
+> describen una versión anterior del procesador (con el multiplicador y el
+> sumador/restador como entidades). El VHDL de `src/`, `sim/resultado_ghdl.txt`
+> y `sim/estimacion_yosys.txt` ya son de la versión actual de 14 estados. El
 > documento se actualiza cuando se confirme este ASM.
 
 Las secciones 9 a 11 del documento siguen el procedimiento de la guía del curso
@@ -51,7 +60,8 @@ para pasar del ASM al hardware y dicen qué debe aparecer en la síntesis de ISE
   da los mismos resultados y ciclos que el VHDL en las 8 matrices
   (`sim/resultado_modelo_uc_cd.txt`).
 - **Síntesis esperada**: 2 FSM (14 y 6 estados), 2 RAM distribuidas de 32 × 32,
-  1 multiplicador 25 × 25 (2 DSP48E1), unos 700 flip-flops y 1 000 LUT
+  1 multiplicador 25 × 25 (2 DSP48E1), 1 restador de 50 bits en el procesador,
+  unos 720 flip-flops y 950 LUT
   (estimación con Yosys en `sim/estimacion_yosys.txt`; ISE dará valores parecidos).
 Las figuras sueltas están en [`doc/figuras/`](doc/figuras).
 
@@ -101,7 +111,7 @@ sintetizar y volver a programar la FPGA.
 ## Uso en ISE 14.7
 
 1. Proyecto nuevo: Artix7, XC7A100T, CSG324, velocidad −1, XST, ISim, VHDL.
-2. Agregar los cinco `.vhd` de `src/` y `src/nexys_a7.ucf`; agregar `sim/rom_prueba.vhd`, `sim/pkg_prueba.vhd` y los testbench solo para simulación.
+2. Agregar los seis `.vhd` de `src/` y `src/nexys_a7.ucf`; agregar `sim/rom_prueba.vhd`, `sim/pkg_prueba.vhd` y los testbench solo para simulación.
 3. Sintetizar, implementar y generar el `.bit`. Revisar que se cumpla la restricción de 10 ns.
 
 ## Uso en la tarjeta

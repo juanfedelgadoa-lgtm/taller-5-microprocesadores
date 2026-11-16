@@ -11,7 +11,7 @@
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use ieee.std_logic_unsigned.all;
+use ieee.std_logic_signed.all;      -- solo para los contadores (+ 1)
 
 entity divisor_frecuencia is
     Port ( clk, rst : in  STD_LOGIC;
@@ -46,10 +46,10 @@ elsif clk'event and clk = '1' then
             cuenta_ms <= (others => '0');
             onda      <= not onda;
         else
-            cuenta_ms <= cuenta_ms + '1';
+            cuenta_ms <= cuenta_ms + 1;
         end if;
     else
-        cuenta_ciclos <= cuenta_ciclos + '1';
+        cuenta_ciclos <= cuenta_ciclos + 1;
     end if;
 end if;
 end process;

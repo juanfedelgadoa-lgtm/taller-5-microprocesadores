@@ -22,10 +22,12 @@
 -- desborde = 1 si el valor tiene mas de 7 digitos.
 -- Solo std_logic y std_logic_vector, salvo el tipo de los estados del ASM
 -- (type estados_asm), declarado como en los ejemplos del curso.
+-- Libreria std_logic_signed (det y pivote son con signo). Los digitos BCD (0 a
+-- 9) se comparan con un '0' adelante para que 8 y 9 no se lean como negativos.
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use ieee.std_logic_unsigned.all;
+use ieee.std_logic_signed.all;
 
 entity visualizador is
     Port ( clk, rst : in  STD_LOGIC;
@@ -124,7 +126,7 @@ elsif clk'event and clk = '1' then
             if final = '1' then
                 neg <= val(31);
                 if val(31) = '1' then
-                    bin <= 0 - val;          -- valor absoluto
+                    bin <= x"00000000" - val;  -- valor absoluto
                 else
                     bin <= val;
                 end if;
@@ -148,7 +150,7 @@ elsif clk'event and clk = '1' then
             end if;
 
         when x3 =>                              -- PASO 3: si digito(d) > 4, sumar 3
-            if dig > "0100" then
+            if ('0' & dig) > 4 then
                 case d is
                     when "0000" => dec(3 downto 0)   <= dig_mas3;
                     when "0001" => dec(7 downto 4)   <= dig_mas3;
@@ -240,6 +242,6 @@ with car select                                 --  gfedcba
            "1111111" when others;               --  apagado
 
 dp       <= '1';
-desborde <= '0' when disp(39 downto 28) = 0 else '1';
+desborde <= '0' when disp(39 downto 28) = x"000" else '1';
 
 end Behavioral;

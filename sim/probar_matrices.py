@@ -32,7 +32,8 @@ def probar(num, matriz, carpeta, corridas):
     copia = escribir_rom(matriz, trabajo / "procesador_bareiss.vhd")
     rom_tb = escribir_rom_prueba(matriz, trabajo / "rom_prueba.vhd")
     banderas = ["-fsynopsys", "-fexplicit", f"--workdir={trabajo}"]
-    archivos = [str(copia), str(rom_tb), str(RAIZ / "sim" / "pkg_prueba.vhd"),
+    archivos = [str(RAIZ / "src" / "RAM_memory.vhd"), str(copia), str(rom_tb),
+                str(RAIZ / "sim" / "pkg_prueba.vhd"),
                 str(RAIZ / "sim" / "tb_procesador.vhd")]
     subprocess.run([GHDL, "-a", *banderas, *archivos], check=True)
     subprocess.run([GHDL, "-e", *banderas, "tb_procesador"], check=True)

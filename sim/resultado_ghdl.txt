@@ -1,18 +1,19 @@
 Simulacion con GHDL 4.1.0 (ghdl -fsynopsys -fexplicit)
-Fecha: 2026-11-07. Procesador de Bareiss en alto nivel: una sola entidad, un solo process,
-13 estados (type estados_asm), sin component ni port map. ROM y RAM dentro de la arquitectura.
-Division por restas sucesivas de p, sin valor absoluto.
+Fecha: 2026-11-07. Procesador de Bareiss en alto nivel: un solo process, 14 estados
+(type estados_asm). Multiplicador x * y y restador r - s siempre sobre los mismos registros.
+Division por restas sucesivas de p, sin valor absoluto. RAM: modelo del curso (RAM_memory.vhd).
+Librerias: std_logic_unsigned solo en RAM_memory.vhd; el resto usa std_logic_signed.
 
 == sim/probar_matrices.py --todas : sim/tb_procesador.vhd con cada matriz de prueba en la ROM
 
 == Matriz 0
    Matriz de la ROM: 2x2   det esperado = 26   intercambios de filas = 0
-   Corrida 1: final = 1 en 36 ciclos
+   Corrida 1: final = 1 en 37 ciclos
       det            =  0000000026  OK
       pivote dir_p=1 =  0000000007  OK
       pivote dir_p=2 =  0000000026  OK
       pivote dir_p=0 =  0000000000  OK
-   Corrida 2: final = 1 en 36 ciclos
+   Corrida 2: final = 1 en 37 ciclos
       det            =  0000000026  OK
       pivote dir_p=1 =  0000000007  OK
       pivote dir_p=2 =  0000000026  OK
@@ -20,13 +21,13 @@ Division por restas sucesivas de p, sin valor absoluto.
    TODAS LAS PRUEBAS PASARON
 == Matriz 1
    Matriz de la ROM: 3x3   det esperado = 3   intercambios de filas = 0
-   Corrida 1: final = 1 en 51 ciclos
+   Corrida 1: final = 1 en 56 ciclos
       det            =  0000000003  OK
       pivote dir_p=1 =  0000000002  OK
       pivote dir_p=2 =  0000000007  OK
       pivote dir_p=3 =  0000000003  OK
       pivote dir_p=0 =  0000000000  OK
-   Corrida 2: final = 1 en 51 ciclos
+   Corrida 2: final = 1 en 56 ciclos
       det            =  0000000003  OK
       pivote dir_p=1 =  0000000002  OK
       pivote dir_p=2 =  0000000007  OK
@@ -35,14 +36,14 @@ Division por restas sucesivas de p, sin valor absoluto.
    TODAS LAS PRUEBAS PASARON
 == Matriz 2
    Matriz de la ROM: 4x4   det esperado = -22   intercambios de filas = 1
-   Corrida 1: final = 1 en 202 ciclos
+   Corrida 1: final = 1 en 216 ciclos
       det            = -0000000022  OK
       pivote dir_p=1 =  0000000002  OK
       pivote dir_p=2 =  0000000004  OK
       pivote dir_p=3 =  0000000013  OK
       pivote dir_p=4 = -0000000022  OK
       pivote dir_p=0 =  0000000000  OK
-   Corrida 2: final = 1 en 202 ciclos
+   Corrida 2: final = 1 en 216 ciclos
       det            = -0000000022  OK
       pivote dir_p=1 =  0000000002  OK
       pivote dir_p=2 =  0000000004  OK
@@ -52,7 +53,7 @@ Division por restas sucesivas de p, sin valor absoluto.
    TODAS LAS PRUEBAS PASARON
 == Matriz 3
    Matriz de la ROM: 5x5   det esperado = 362   intercambios de filas = 0
-   Corrida 1: final = 1 en 3740 ciclos
+   Corrida 1: final = 1 en 3770 ciclos
       det            =  0000000362  OK
       pivote dir_p=1 =  0000000004  OK
       pivote dir_p=2 =  0000000020  OK
@@ -60,7 +61,7 @@ Division por restas sucesivas de p, sin valor absoluto.
       pivote dir_p=4 = -0000000639  OK
       pivote dir_p=5 =  0000000362  OK
       pivote dir_p=0 =  0000000000  OK
-   Corrida 2: final = 1 en 3740 ciclos
+   Corrida 2: final = 1 en 3770 ciclos
       det            =  0000000362  OK
       pivote dir_p=1 =  0000000004  OK
       pivote dir_p=2 =  0000000020  OK
@@ -71,13 +72,13 @@ Division por restas sucesivas de p, sin valor absoluto.
    TODAS LAS PRUEBAS PASARON
 == Matriz 4
    Matriz de la ROM: 3x3   det esperado = 50   intercambios de filas = 1
-   Corrida 1: final = 1 en 125 ciclos
+   Corrida 1: final = 1 en 130 ciclos
       det            =  0000000050  OK
       pivote dir_p=1 = -0000000002  OK
       pivote dir_p=2 = -0000000010  OK
       pivote dir_p=3 =  0000000050  OK
       pivote dir_p=0 =  0000000000  OK
-   Corrida 2: final = 1 en 125 ciclos
+   Corrida 2: final = 1 en 130 ciclos
       det            =  0000000050  OK
       pivote dir_p=1 = -0000000002  OK
       pivote dir_p=2 = -0000000010  OK
@@ -86,14 +87,14 @@ Division por restas sucesivas de p, sin valor absoluto.
    TODAS LAS PRUEBAS PASARON
 == Matriz 5
    Matriz de la ROM: 4x4   det esperado = 150   intercambios de filas = 1
-   Corrida 1: final = 1 en 384 ciclos
+   Corrida 1: final = 1 en 398 ciclos
       det            =  0000000150  OK
       pivote dir_p=1 =  0000000001  OK
       pivote dir_p=2 = -0000000005  OK
       pivote dir_p=3 =  0000000025  OK
       pivote dir_p=4 =  0000000150  OK
       pivote dir_p=0 =  0000000000  OK
-   Corrida 2: final = 1 en 384 ciclos
+   Corrida 2: final = 1 en 398 ciclos
       det            =  0000000150  OK
       pivote dir_p=1 =  0000000001  OK
       pivote dir_p=2 = -0000000005  OK
@@ -122,7 +123,7 @@ Division por restas sucesivas de p, sin valor absoluto.
    TODAS LAS PRUEBAS PASARON
 == Matriz 7
    Matriz de la ROM: 5x5   det esperado = -17121828   intercambios de filas = 0
-   Corrida 1: final = 1 en 19012962 ciclos
+   Corrida 1: final = 1 en 19012992 ciclos
       det            = -0017121828  OK
       pivote dir_p=1 =  0000000030  OK
       pivote dir_p=2 = -0000001359  OK
@@ -170,15 +171,17 @@ TODAS LAS PRUEBAS PASARON
 
 == Pruebas de mutacion (se cambia el diseno a proposito; las pruebas deben fallar)
 Mutacion 1, visualizador: el XS3 suma 2 en lugar de 3 -> tb_visualizador: PRUEBAS CON ERRORES: 12
-Mutacion 2, procesador: det sin el signo de los intercambios (matriz 2) -> tb_procesador: PRUEBAS CON ERRORES: 4
+Mutacion 2, procesador: det sin el signo de los intercambios (matriz 4) -> tb_procesador: PRUEBAS CON ERRORES: 4
 Mutacion 3, antirrebote: muestrea cada ciclo y no cada 1 ms -> tb_det_bareiss: final subio 13 veces, ERROR
-Mutacion 4, division: el cociente cuenta +1 tambien con signos distintos (matriz 3) -> las divisiones
-  siguientes ya no son exactas y el procesador nunca llega a final (la version correcta termina en
-  3 740 ciclos; con la mutacion, a los 2 ms = 200 000 ciclos sigue sin final). tb_procesador lo
-  reporta como TIEMPO AGOTADO.
+Mutacion 4, division: el cociente siempre cuenta +1 (matriz 3) -> las divisiones siguientes ya no
+  son exactas y el procesador no llega a final (la version correcta termina en 3 770 ciclos; con la
+  mutacion, a los 2 ms = 200 000 ciclos sigue sin final). tb_procesador lo reporta como TIEMPO AGOTADO.
+Mutacion 5, visualizador: digito > 4 sin el '0' adelante (con std_logic_signed 8 y 9 serian
+  negativos) -> tb_visualizador: PRUEBAS CON ERRORES: 11
 
 == ghdl --synth det_bareiss (sintesis generica, no reemplaza a ISE)
-Sin latches. RAM inferida: ram_a y ram_b, 32 x 32 bits (RAM A y RAM B).
-procesador_bareiss: multiplicaciones 25 x 25 en s8 y s9; restas de 50 bits en s10 (num - prod)
-  y s11 (num - p o acum - p); 0 - cociente en el ultimo paso; contadores dira, i, j, k y cociente.
+Sin latches. RAM inferida: ram_blk 32 x 32 bits (RAM_memory, dos instancias: RAM A y RAM B).
+procesador_bareiss: x * y escrito en s8 y s9 y r - s en s10 y s12, con los mismos registros; al
+  optimizar queda 1 multiplicador 25 x 25 y 1 restador de 50 bits (ver sim/estimacion_yosys.txt).
+  Contadores: dira, i, j, k (+1) y cociente (+1 / -1).
 visualizador: restador 0 - val, sumador +3, contadores cont, d y dsel.

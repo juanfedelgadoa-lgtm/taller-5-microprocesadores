@@ -2,26 +2,23 @@ Estimacion de recursos con Yosys 0.71 (synth_xilinx -family xc7) a partir de
 ghdl --synth --out=verilog det_bareiss. NO es el reporte de ISE: sirve como
 referencia de orden de magnitud. ISE (XST) puede dar valores distintos.
 
-Version: procesador de 13 estados en alto nivel (sin component ni port map).
+Version: procesador de 14 estados en alto nivel; RAM_memory del curso (2 instancias).
 
---- Por modulo, sin aplanar ---
+--- Unidades aritmeticas despues de optimizar (proc; flatten; opt -full) ---
+$mul 50 bits (25 x 25) : 1   -> x * y del procesador (s8 y s9 usan los mismos registros)
+$sub 50 bits           : 1   -> r - s del procesador (s10 y s12 usan los mismos registros)
+$sub 32 bits           : 2   -> contador cociente (+1 / -1) y 0 - val del visualizador
+$add (3 a 17 bits)     : 10  -> contadores dira, i, j, k, cont, d, dsel, divisor; digito + 3
+
+--- Por modulo, sin aplanar (ram_memory cuenta una instancia; hay 2) ---
 antirrebote              LUT=    5 FF=  12 CARRY4=  0 DSP48E1=0 RAM32M=0
 det_bareiss              LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
 divisor_frecuencia       LUT=   21 FF=  27 CARRY4=  8 DSP48E1=0 RAM32M=0
-procesador_bareiss       LUT=  657 FF= 518 CARRY4= 39 DSP48E1=4 RAM32M=12
+procesador_bareiss       LUT=  712 FF= 546 CARRY4= 26 DSP48E1=2 RAM32M=0
+ram_memory               LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=6
 visualizador             LUT=  223 FF= 132 CARRY4= 13 DSP48E1=0 RAM32M=0
-TOTAL                    LUT=  906 FF= 689 CARRY4= 60 DSP48E1=4 RAM32M=12
 
 --- Diseno aplanado (synth_xilinx -flatten) ---
-   LUT2 258, LUT3 171, LUT4 170, LUT5 196, LUT6 94  -> LUT = 889
-   FDCE 687, FDPE 2                                 -> FF  = 689
-   CARRY4 60, DSP48E1 4, RAM32M 12 (6 por RAM)
-
---- Multiplicaciones del ASM (s8 y s9) ---
-El VHDL de alto nivel escribe la multiplicacion en dos estados. Sin
-compartir recursos, Yosys arma dos multiplicadores de 25 x 25 (2 DSP48E1
-cada uno). Con "share -aggressive" antes de synth_xilinx los junta en uno:
-   LUT = 1096, FF = 689, CARRY4 = 46, DSP48E1 = 2, RAM32M = 12
-XST hace lo mismo con su optimizacion Resource Sharing (activa por defecto):
-junta dos operaciones aritmeticas iguales que nunca se usan en el mismo ciclo.
-En el reporte de ISE se ve en "HDL Synthesis Report" (Multipliers: 1 o 2).
+   LUT2 199, LUT3 168, LUT4 161, LUT5 212, LUT6 205 -> LUT = 945
+   FDCE 715, FDPE 2                                 -> FF  = 717
+   CARRY4 47, DSP48E1 2 (un multiplicador 25 x 25), RAM32M 12 (6 por RAM)

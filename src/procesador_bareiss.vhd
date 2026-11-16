@@ -8,21 +8,24 @@
 --
 -- ASM en alto nivel, con el estilo de los ejemplos ASM_Sumax y
 -- ASM_contador_unos: un solo process con "case st is" y, en cada estado, las
--- operaciones de su caja en el diagrama ASM. No hay component ni port map.
+-- operaciones de su caja en el diagrama ASM.
 --
--- El ASM esta disenado con el hardware que pide el taller:
---   * Un multiplicador: una multiplicacion por estado (s8 y s9).
---   * Un sumador/restador: una resta de datos por estado (s10 y s11).
---   * Division por restas sucesivas (s11): se resta p una y otra vez y se
---     cuentan las restas. No usa valor absoluto.
---   * Una ROM con la matriz y dos RAM con el modelo de RAM del curso.
+-- El ASM esta disenado con el hardware que pide el taller. Cada unidad
+-- trabaja siempre sobre los mismos registros, asi la sintesis arma una sola:
+--   * Multiplicador:     x * y   (s8 y s9)
+--   * Sumador/restador:  r - s   (s10 y s12); el ASM solo necesita restar
+--   * Division por restas sucesivas (s11 y s12): se resta p y se cuentan las
+--     restas en el contador cociente. No usa valor absoluto.
+--   * ROM con la matriz y dos RAM con el modelo de RAM del curso (RAM_memory).
 -- Los contadores (dira, i, j, k y cociente) tienen su propio +1 o -1, como el
 -- contador i del ejemplo ASM_Sumax.
+--
+-- Librerias: solo std_logic_1164 y std_logic_signed (los datos son con signo,
+-- en complemento a 2). Todas las senales son std_logic o std_logic_vector.
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use ieee.std_logic_arith.all;
-use ieee.std_logic_signed.all;      -- los datos son con signo (complemento a 2)
+use ieee.std_logic_signed.all;
 
 entity procesador_bareiss is
     Port ( clk, rst : in  STD_LOGIC;
@@ -35,18 +38,25 @@ end procesador_bareiss;
 
 architecture Behavioral of procesador_bareiss is
 
-type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12);
+component RAM_memory
+   port ( c      : in  std_logic;
+          data   : in  std_logic_vector (31 downto 0);
+          wr_add : in  std_logic_vector (4 downto 0);
+          rd_add : in  std_logic_vector (4 downto 0);
+          we     : in  std_logic;
+          q      : out std_logic_vector (31 downto 0));
+end component;
+
+type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13);
 signal st : estados_asm;
 
 -- ROM de la matriz
-signal dira : STD_LOGIC_VECTOR (4 downto 0);
-signal a    : STD_LOGIC_VECTOR (5 downto 0);
+signal dira  : STD_LOGIC_VECTOR (4 downto 0);
+signal a     : STD_LOGIC_VECTOR (5 downto 0);
+signal ext_a : STD_LOGIC_VECTOR (25 downto 0);    -- extension de signo de a
 
--- RAM A y RAM B (modelo de RAM del curso: 32 palabras de 32 bits). Tienen el
--- mismo contenido porque se escriben juntas; la RAM A lee a(i,j) y la RAM B
--- lee a(k,j), asi se leen dos elementos de la matriz en el mismo ciclo.
-type mem is array(0 to 31) of std_logic_vector(31 downto 0);
-signal ram_a, ram_b : mem;
+-- RAM A y RAM B: tienen el mismo contenido porque se escriben juntas. La RAM A
+-- lee a(i,j) y la RAM B lee a(k,j): se leen dos elementos en el mismo ciclo.
 signal we             : STD_LOGIC;
 signal wr_add         : STD_LOGIC_VECTOR (4 downto 0);
 signal data           : STD_LOGIC_VECTOR (31 downto 0);
@@ -57,14 +67,19 @@ signal qa, qb         : STD_LOGIC_VECTOR (31 downto 0);   -- qa = a(i,j), qb = a
 signal n, i, j, k     : STD_LOGIC_VECTOR (2 downto 0);
 signal piv            : STD_LOGIC_VECTOR (31 downto 0);   -- pivote a(k,k)
 signal p              : STD_LOGIC_VECTOR (31 downto 0);   -- pivote anterior (divisor)
-signal aik, aij, akj  : STD_LOGIC_VECTOR (31 downto 0);   -- a(i,k), a(i,j), a(k,j)
+signal ext_p          : STD_LOGIC_VECTOR (17 downto 0);   -- extension de signo de p
+signal aik            : STD_LOGIC_VECTOR (31 downto 0);   -- a(i,k) de la fila i
+signal tmp            : STD_LOGIC_VECTOR (31 downto 0);   -- intercambio de filas
 signal signo          : STD_LOGIC;                        -- 1 = numero impar de intercambios
 signal b1, b2, b3, b4 : STD_LOGIC_VECTOR (31 downto 0);   -- banco de pivotes
 signal deter          : STD_LOGIC_VECTOR (31 downto 0);   -- determinante
-signal num            : STD_LOGIC_VECTOR (49 downto 0);   -- numerador; en la division, residuo
-signal prod           : STD_LOGIC_VECTOR (49 downto 0);   -- a(i,k) * a(k,j)
-signal acum           : STD_LOGIC_VECTOR (49 downto 0);   -- division con signos distintos
+
+-- Entradas del multiplicador (x * y) y del restador (r - s)
+signal x, y           : STD_LOGIC_VECTOR (24 downto 0);
+signal r, s           : STD_LOGIC_VECTOR (49 downto 0);   -- en la division, r es el residuo
+signal t              : STD_LOGIC_VECTOR (49 downto 0);   -- division: valor final de r
 signal cociente       : STD_LOGIC_VECTOR (31 downto 0);
+signal sq             : STD_LOGIC;                        -- 1 = cociente negativo (cuenta hacia abajo)
 
 begin
 
@@ -120,39 +135,32 @@ with dira select
 -- <<< FIN ROM
 
 ------------------------------------------------------------------------------
--- RAM A y RAM B (modelo de RAM del curso): escritura sincrona, lectura
--- asincrona. Con std_logic_signed, conv_integer lee el vector con signo; por
--- eso la direccion lleva un '0' adelante (posiciones 0 a 31).
+-- RAM A y RAM B (modelo de RAM del curso, archivo RAM_memory.vhd)
 ------------------------------------------------------------------------------
-process (clk)
-begin
-   if (clk'event and clk = '1') then
-      if (we = '1') then
-         ram_a(conv_integer('0' & wr_add)) <= data;
-         ram_b(conv_integer('0' & wr_add)) <= data;
-      end if;
-   end if;
-end process;
-
-qa <= ram_a(conv_integer('0' & dir_ij));
-qb <= ram_b(conv_integer('0' & dir_kj));
+U_RAM_A : RAM_memory port map (c => clk, data => data, wr_add => wr_add,
+                               rd_add => dir_ij, we => we, q => qa);
+U_RAM_B : RAM_memory port map (c => clk, data => data, wr_add => wr_add,
+                               rd_add => dir_kj, we => we, q => qb);
 
 -- a(f,c) se guarda en f & c(1 downto 0) (columnas 1 a 4) o en "11" & f (columna 5)
 dir_ij <= "11" & i when j = "101" else i & j(1 downto 0);
 dir_kj <= "11" & k when j = "101" else k & j(1 downto 0);
 
--- Escrituras del ASM en las RAM: RAM(i,j) en s1, s4 y s11; RAM(k,j) en s5
-we     <= '1' when st = s1 or st = s4 or st = s5 or (st = s11 and num = acum) else '0';
+-- Escrituras del ASM en las RAM: RAM(i,j) en s1, s4 y s12; RAM(k,j) en s5
+we     <= '1' when st = s1 or st = s4 or st = s5 or (st = s12 and r = t) else '0';
 wr_add <= dir_kj when st = s5 else dir_ij;
-data   <= SXT(a, 32) when st = s1 else          -- s1: copia de la ROM
-          qb         when st = s4 else          -- s4: intercambio, a(k,j)
-          aij        when st = s5 else          -- s5: intercambio, a(i,j)
-          cociente;                             -- s11: a(i,j) nuevo
+data   <= ext_a & a when st = s1 else           -- s1: copia de la ROM
+          qb        when st = s4 else           -- s4: intercambio, a(k,j)
+          tmp       when st = s5 else           -- s5: intercambio, a(i,j)
+          cociente;                             -- s12: a(i,j) nuevo
+
+ext_a <= (others => a(5));
+ext_p <= (others => p(31));
 
 ------------------------------------------------------------------------------
 -- Salidas
 ------------------------------------------------------------------------------
-final  <= '1' when st = s12 else '0';
+final  <= '1' when st = s13 else '0';
 det    <= deter;
 pivote <= deter when dir_p = n     else             -- el pivote n es el det
           b1    when dir_p = "001" else
@@ -172,13 +180,14 @@ if rst = '1' then
     dira <= (others => '0');
     n <= "000";  i <= "000";  j <= "000";  k <= "000";
     piv <= (others => '0');  p <= (others => '0');
-    aik <= (others => '0');  aij <= (others => '0');  akj <= (others => '0');
+    aik <= (others => '0');  tmp <= (others => '0');
     signo <= '0';
     b1 <= (others => '0');  b2 <= (others => '0');
     b3 <= (others => '0');  b4 <= (others => '0');
     deter <= (others => '0');
-    num <= (others => '0');  prod <= (others => '0');  acum <= (others => '0');
-    cociente <= (others => '0');
+    x <= (others => '0');  y <= (others => '0');
+    r <= (others => '0');  s <= (others => '0');  t <= (others => '0');
+    cociente <= (others => '0');  sq <= '0';
 
 elsif clk'event and clk = '1' then
 
@@ -233,17 +242,17 @@ elsif clk'event and clk = '1' then
                 st <= s4;
             elsif i = n then
                 deter <= (others => '0');   -- no hay fila: det = 0
-                st <= s12;
+                st <= s13;
             else
                 i  <= i + 1;
                 st <= s3;
             end if;
 
-        when s4 =>                          -- RAM(i,j) = a(k,j) ; aij = a(i,j)
-            aij <= qa;
+        when s4 =>                          -- RAM(i,j) = a(k,j) ; tmp = a(i,j)
+            tmp <= qa;
             st  <= s5;
 
-        when s5 =>                          -- RAM(k,j) = aij
+        when s5 =>                          -- RAM(k,j) = tmp
             if j = n then
                 j  <= k;                    -- vuelve a leer el pivote
                 st <= s2;
@@ -257,35 +266,50 @@ elsif clk'event and clk = '1' then
             j   <= k + 1;
             st  <= s7;
 
-        when s7 =>                          -- lee a(i,j) y a(k,j)
-            aij <= qa;
-            akj <= qb;
-            st  <= s8;
+        when s7 =>                          -- entradas del multiplicador: piv y a(i,j)
+            x  <= piv(24 downto 0);
+            y  <= qa(24 downto 0);
+            st <= s8;
 
-        when s8 =>                          -- multiplicador: num = piv * a(i,j)
-            num <= piv(24 downto 0) * aij(24 downto 0);
-            st  <= s9;
+        when s8 =>                          -- multiplicador: r = piv * a(i,j)
+            r  <= x * y;
+            x  <= aik(24 downto 0);         -- entradas: a(i,k) y a(k,j)
+            y  <= qb(24 downto 0);
+            st <= s9;
 
-        when s9 =>                          -- multiplicador: prod = a(i,k) * a(k,j)
-            prod <= aik(24 downto 0) * akj(24 downto 0);
-            st   <= s10;
+        when s9 =>                          -- multiplicador: s = a(i,k) * a(k,j)
+            s  <= x * y;
+            st <= s10;
 
-        when s10 =>                         -- restador: num = num - prod
-            num      <= num - prod;
-            acum     <= (others => '0');
+        when s10 =>                         -- restador: r = numerador ; s = p
+            r        <= r - s;
+            s        <= ext_p & p;
             cociente <= (others => '0');
             st <= s11;
 
-        when s11 =>                         -- division por restas sucesivas: num / p
-            if num /= acum then
-                if num(49) = p(31) then     -- mismo signo: num baja hasta 0
-                    num      <= num - p;
+        when s11 =>                         -- prepara la division r / s
+            if r(49) = s(49) then           -- mismo signo: r baja hasta 0
+                t <= (others => '0');
+            else                            -- signos distintos: r va de 0 hasta el numerador
+                t <= r;
+                r <= (others => '0');
+            end if;
+            if k + 1 = n and signo = '1' then
+                sq <= not (r(49) xor s(49));    -- ultimo paso: det = -a(n,n)
+            else
+                sq <= r(49) xor s(49);          -- cociente negativo si los signos son distintos
+            end if;
+            st <= s12;
+
+        when s12 =>                         -- division por restas sucesivas: r = r - p
+            if r /= t then
+                r <= r - s;
+                if sq = '0' then
                     cociente <= cociente + 1;
-                else                        -- signos distintos: acum va de 0 hasta num
-                    acum     <= acum - p;
+                else
                     cociente <= cociente - 1;
                 end if;
-                st <= s11;
+                st <= s12;
             elsif j /= n then               -- RAM(i,j) = cociente ; siguiente columna
                 j  <= j + 1;
                 st <= s7;
@@ -298,23 +322,19 @@ elsif clk'event and clk = '1' then
                 k  <= k + 1;
                 j  <= k + 1;
                 st <= s2;
-            else                            -- ultimo paso: det = a(n,n) con el signo
-                if signo = '1' then
-                    deter <= 0 - cociente;
-                else
-                    deter <= cociente;
-                end if;
-                st <= s12;
+            else                            -- ultimo paso: det = a(n,n)
+                deter <= cociente;
+                st <= s13;
             end if;
 
-        when s12 =>                         -- final = 1
+        when s13 =>                         -- final = 1
             if inicio = '1' then
                 dira <= "00001";
                 i <= "001";
                 j <= "001";
                 st <= s1;
             else
-                st <= s12;
+                st <= s13;
             end if;
 
     end case;
