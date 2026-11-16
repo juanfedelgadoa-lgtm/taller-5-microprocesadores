@@ -5,15 +5,18 @@ Sirve para:
   1. Calcular el determinante y los pivotes que debe mostrar la FPGA, con la
      MISMA regla de busqueda de pivote que el ASM (primera fila r > k con
      a(r,k) /= 0). El ultimo pivote (posicion n del banco) es el determinante.
-  2. Cambiar la ROM (entidad rom_matriz, dentro de src/procesador_bareiss.vhd)
-     por la matriz que se quiera evaluar.
+  2. Cambiar la ROM (bloque "with dira select" dentro de
+     src/procesador_bareiss.vhd) por la matriz que se quiera evaluar. Tambien
+     escribe la misma ROM en sim/rom_prueba.vhd, que es la copia que leen los
+     testbench para calcular los valores esperados.
 
 Uso:
   python3 sim/modelo_referencia.py
       Muestra det y pivotes de las 8 matrices de prueba.
 
   python3 sim/modelo_referencia.py rom 3
-      Pone la matriz de prueba 3 en la ROM de src/procesador_bareiss.vhd.
+      Pone la matriz de prueba 3 en la ROM de src/procesador_bareiss.vhd
+      y en sim/rom_prueba.vhd.
 
   python3 sim/modelo_referencia.py rom "2 1 3; 1 4 2; 3 2 5"
       Pone esa matriz en la ROM (filas separadas por ';').
@@ -23,6 +26,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 ARCHIVO_PROCESADOR = RAIZ / "src" / "procesador_bareiss.vhd"
+ARCHIVO_ROM_PRUEBA = RAIZ / "sim" / "rom_prueba.vhd"
 
 # Matrices de prueba (todas simetricas, elementos en [-32, 31]).
 MATRICES = [
@@ -133,33 +137,60 @@ def validar(a):
         print("Aviso: la matriz no es simetrica (el diseno funciona igual).")
 
 
-def texto_rom(a):
-    """Bloque de la ROM (entidad rom_matriz) para la matriz a, en orden por columnas."""
+def lineas_rom(a):
+    """Lineas del "with dira select" de la ROM para la matriz a (por columnas)."""
     validar(a)
     n = len(a)
-    det, piv, inter = bareiss(a)
-    filas_txt = "\n".join("--   " + " ".join(f"{x:4d}" for x in f) for f in a)
-    lineas = [f'    a <= "{bin6(n)}" when "00000",   -- 00h: n = {n}']
+    lineas = ["with dira select", f'    a <= "{bin6(n)}" when "00000",   -- 00h: n = {n}']
     d = 1
     for j in range(n):
         for i in range(n):
             lineas.append(f'         "{bin6(a[i][j])}" when "{d:05b}",   -- {d:02X}h: a{i+1}{j+1} = {a[i][j]}')
             d += 1
     lineas.append('         "000000" when others;')
+    return "\n".join(lineas)
+
+
+def cabecera_rom(a):
+    n = len(a)
+    det, piv, _ = bareiss(a)
+    filas_txt = "\n".join("--   " + " ".join(f"{x:4d}" for x in f) for f in a)
     piv_txt = ", ".join(str(x) for x in piv)
-    return f"""----------------------------------------------------------------------------------
+    return f"""-- Matriz ({n}x{n}):
+{filas_txt}
+-- Resultado esperado: det = {det}
+-- Pivotes (dir_p = 1..{n}): {piv_txt}"""
+
+
+def texto_rom(a):
+    """Bloque de la ROM que va dentro de la arquitectura del procesador."""
+    return f"""------------------------------------------------------------------------------
 -- ROM DE LA MATRIZ (32 x 6 bits, lectura combinacional)
 --
--- Hace parte de la arquitectura del procesador: para calcular el determinante
--- de otra matriz se cambia este bloque y se vuelve a programar la FPGA.
+-- Hace parte de la arquitectura del procesador. Para calcular el determinante
+-- de otra matriz se cambia este bloque y se vuelve a programar la FPGA. Si se
+-- cambia a mano, copien las mismas lineas en sim/rom_prueba.vhd (la ROM que
+-- leen los testbench); el script sim/modelo_referencia.py cambia las dos.
 --
 -- Posicion 00h = n; luego los elementos a(i,j) por columnas (a11, a21, ...),
 -- como en la Figura 1 del taller. Datos en complemento a 2 (-32 a 31).
 --
--- Matriz ({n}x{n}):
-{filas_txt}
--- Resultado esperado: det = {det}
--- Pivotes (dir_p = 1..{n}): {piv_txt}
+{cabecera_rom(a)}
+------------------------------------------------------------------------------
+{lineas_rom(a)}
+"""
+
+
+def texto_rom_prueba(a):
+    """sim/rom_prueba.vhd: la misma ROM como entidad, solo para los testbench."""
+    return f"""----------------------------------------------------------------------------------
+-- COPIA DE LA ROM PARA LOS TESTBENCH (solo simulacion)
+--
+-- Tiene las mismas lineas que la ROM de src/procesador_bareiss.vhd. Los
+-- testbench la leen para calcular el determinante y los pivotes esperados.
+-- Generado con: python3 sim/modelo_referencia.py rom ...
+--
+{cabecera_rom(a)}
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
@@ -172,8 +203,7 @@ end rom_matriz;
 architecture Behavioral of rom_matriz is
 begin
 
-with dira select
-{chr(10).join(lineas)}
+{lineas_rom(a)}
 
 end Behavioral;
 """
@@ -197,6 +227,13 @@ def escribir_rom(a, destino=None, origen=ARCHIVO_PROCESADOR):
     return ruta
 
 
+def escribir_rom_prueba(a, destino=None):
+    """Escribe sim/rom_prueba.vhd (o una copia en destino)."""
+    ruta = Path(destino) if destino else ARCHIVO_ROM_PRUEBA
+    ruta.write_text(texto_rom_prueba(a), encoding="ascii")
+    return ruta
+
+
 def leer_matriz(txt):
     return [[int(x) for x in fila.split()] for fila in txt.split(";") if fila.strip()]
 
@@ -206,8 +243,10 @@ if __name__ == "__main__":
         arg = sys.argv[2]
         a = MATRICES[int(arg)] if arg.isdigit() else leer_matriz(arg)
         ruta = escribir_rom(a, sys.argv[3] if len(sys.argv) > 3 else None)
+        ruta_tb = escribir_rom_prueba(a, sys.argv[4] if len(sys.argv) > 4 else None)
         det, piv, inter = bareiss(a)
         print(f"Escrito {ruta}")
+        print(f"Escrito {ruta_tb}")
         print(f"det = {det}   display = '{texto_display(det)}'")
         for k, v in enumerate(piv, start=1):
             print(f"   dir_p = {k}: pivote = {v}   display = '{texto_display(v)}'")

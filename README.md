@@ -11,24 +11,32 @@ El diseño tiene cuatro bloques:
 |---|---|---|
 | Antirrebote | `src/antirrebote.vhd` | El único antirrebote, para el botón de inicio |
 | Divisor de frecuencia | `src/divisor_frecuencia.vhd` | Pulso de 1 ms y onda de 1 s (reloj de 100 MHz) |
-| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss en alto nivel (un solo process, 14 estados), como los ejemplos del profesor. Usa la ROM, dos RAM del modelo del profesor, un banco de pivotes y las dos únicas unidades funcionales: multiplicador y sumador/restador. La división es por restas sucesivas (\|t1 − t2\| / \|p\|, el signo se aplica al final), así que el sumador/restador siempre resta. La RAM, el multiplicador y el sumador/restador son entidades aparte (`RAM_memory`, `multiplicador`, `sumador_restador`). No hay ALU. |
+| Procesador de Bareiss | `src/procesador_bareiss.vhd` | ASM de Bareiss en alto nivel, como `ASM_Sumax` y `ASM_contador_unos`: una sola entidad, un solo process con `case st is` (13 estados) y las operaciones escritas en cada estado. No tiene `component` ni `port map`: la ROM (`with dira select`) y las dos RAM (modelo de RAM del curso) están dentro de la arquitectura. El ASM respeta el hardware del taller: una multiplicación por estado (s8, s9), una resta de datos por estado (s10, s11) y la división por restas sucesivas de p, sin valor absoluto (s11). |
 | Visualizador | `src/visualizador.vhd` | ASM del XS3 (6 estados, uno por paso) y display de 8 dígitos, en el mismo archivo. Trabaja en paralelo con el procesador y tiene sus propias unidades. |
 
 `src/det_bareiss.vhd` es el tope para ISE: solo conecta los cuatro bloques
 (ISE lo necesita para asignar los pines con `src/nexys_a7.ucf`).
 
-Solo se usan `std_logic` y `std_logic_vector`. Las excepciones salen de los
-ejemplos del curso: la RAM es el modelo del profesor sin cambios (32 × 32) y los
-estados de cada ASM se declaran como en `ASM_Sumax` y `ASM_contador_unos`:
+Solo se usan `std_logic` y `std_logic_vector` (no hay tipos `signed`, `unsigned`
+ni `integer` en el diseño). Las excepciones salen del curso: el arreglo de la RAM
+es el del modelo del profesor (32 × 32) y los estados de cada ASM se declaran
+como en `ASM_Sumax` y `ASM_contador_unos`:
 
 ```vhdl
-type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13);
+type estados_asm is (s0,s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12);
 signal st : estados_asm;
 ```
 
 **Documento completo** (pseudoalgoritmo, cajas negras, diagramas ASM con la
 verificación de sus reglas, simulación y código):
 [`doc/Taller5_ASM_Bareiss_XS3.pdf`](doc/Taller5_ASM_Bareiss_XS3.pdf).
+
+> **Pendiente:** el PDF, las figuras de `doc/figuras/` y las tablas de la UC y
+> el CD (`doc/fuentes/uc_cd.py`, `sim/resultado_modelo_uc_cd.txt`) todavía
+> describen la versión anterior del procesador (14 estados, con entidades y
+> port map). El VHDL de `src/`, `sim/resultado_ghdl.txt` y
+> `sim/estimacion_yosys.txt` ya son de la versión nueva de 13 estados. El
+> documento se actualiza cuando se confirme este ASM.
 
 Las secciones 9 a 11 del documento siguen el procedimiento de la guía del curso
 para pasar del ASM al hardware y dicen qué debe aparecer en la síntesis de ISE:
@@ -83,15 +91,17 @@ python3 sim/modelo_referencia.py rom "2 1 3; 1 4 2; 3 2 5"
 ```
 
 cambia la ROM dentro de `src/procesador_bareiss.vhd` (entre las marcas
-`>>> INICIO ROM` y `<<< FIN ROM`) e imprime el determinante y los pivotes
-esperados. También se puede editar a mano: 00h = n, luego a11, a21, …, an1,
-a12, … en complemento a 2 de 6 bits. Después simular con `sim/tb_procesador.vhd`,
+`>>> INICIO ROM` y `<<< FIN ROM`) y la copia que leen los testbench
+(`sim/rom_prueba.vhd`), e imprime el determinante y los pivotes esperados.
+También se puede editar a mano: 00h = n, luego a11, a21, …, an1, a12, … en
+complemento a 2 de 6 bits; en ese caso hay que copiar las mismas líneas en
+`sim/rom_prueba.vhd`. Después simular con `sim/tb_procesador.vhd`,
 sintetizar y volver a programar la FPGA.
 
 ## Uso en ISE 14.7
 
 1. Proyecto nuevo: Artix7, XC7A100T, CSG324, velocidad −1, XST, ISim, VHDL.
-2. Agregar los cinco `.vhd` de `src/` y `src/nexys_a7.ucf`; agregar `sim/pkg_prueba.vhd` y los testbench solo para simulación.
+2. Agregar los cinco `.vhd` de `src/` y `src/nexys_a7.ucf`; agregar `sim/rom_prueba.vhd`, `sim/pkg_prueba.vhd` y los testbench solo para simulación.
 3. Sintetizar, implementar y generar el `.bit`. Revisar que se cumpla la restricción de 10 ns.
 
 ## Uso en la tarjeta
@@ -105,7 +115,7 @@ sintetizar y volver a programar la FPGA.
 
 | Archivo | Prueba |
 |---|---|
-| `sim/tb_procesador.vhd`, `sim/pkg_prueba.vhd` | Procesador: det y todos los pivotes contra un modelo de Bareiss (sirve para cualquier ROM) |
+| `sim/tb_procesador.vhd`, `sim/pkg_prueba.vhd`, `sim/rom_prueba.vhd` | Procesador: det y todos los pivotes contra un modelo de Bareiss (lee la matriz de `sim/rom_prueba.vhd`) |
 | `sim/tb_visualizador.vhd` | XS3 y display con valores positivos, negativos, de 7 dígitos y con desborde |
 | `sim/tb_det_bareiss.vhd` | Tarjeta completa: botón con rebotes y lectura del display |
 | `sim/probar_matrices.py` | Corre `tb_procesador` con las 8 matrices de prueba |

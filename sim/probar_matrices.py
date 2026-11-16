@@ -2,8 +2,9 @@
 """Prueba el procesador con las 8 matrices de modelo_referencia.py usando GHDL.
 
 Para cada matriz escribe una copia temporal de src/procesador_bareiss.vhd con
-esa matriz en la ROM, la compila y corre sim/tb_procesador.vhd (que se
-autoverifica). No modifica src/.
+esa matriz en la ROM, y la copia de la ROM que lee el testbench
+(sim/rom_prueba.vhd), las compila y corre sim/tb_procesador.vhd (que se
+autoverifica). No modifica src/ ni sim/.
 
 Uso:
   python3 sim/probar_matrices.py              # matrices 0 a 6
@@ -19,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from modelo_referencia import MATRICES, escribir_rom  # noqa: E402
+from modelo_referencia import MATRICES, escribir_rom, escribir_rom_prueba  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[1]
 GHDL = os.environ.get("GHDL", "ghdl")
@@ -29,8 +30,9 @@ def probar(num, matriz, carpeta, corridas):
     trabajo = Path(carpeta) / f"m{num}"
     trabajo.mkdir()
     copia = escribir_rom(matriz, trabajo / "procesador_bareiss.vhd")
+    rom_tb = escribir_rom_prueba(matriz, trabajo / "rom_prueba.vhd")
     banderas = ["-fsynopsys", "-fexplicit", f"--workdir={trabajo}"]
-    archivos = [str(copia), str(RAIZ / "sim" / "pkg_prueba.vhd"),
+    archivos = [str(copia), str(rom_tb), str(RAIZ / "sim" / "pkg_prueba.vhd"),
                 str(RAIZ / "sim" / "tb_procesador.vhd")]
     subprocess.run([GHDL, "-a", *banderas, *archivos], check=True)
     subprocess.run([GHDL, "-e", *banderas, "tb_procesador"], check=True)

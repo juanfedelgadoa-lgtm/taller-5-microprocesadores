@@ -2,40 +2,26 @@ Estimacion de recursos con Yosys 0.71 (synth_xilinx -family xc7) a partir de
 ghdl --synth --out=verilog det_bareiss. NO es el reporte de ISE: sirve como
 referencia de orden de magnitud. ISE (XST) puede dar valores distintos.
 
---- Por modulo, sin aplanar (cuenta una instancia: ram_memory tiene 2) ---
+Version: procesador de 13 estados en alto nivel (sin component ni port map).
+
+--- Por modulo, sin aplanar ---
 antirrebote              LUT=    5 FF=  12 CARRY4=  0 DSP48E1=0 RAM32M=0
 det_bareiss              LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
 divisor_frecuencia       LUT=   21 FF=  27 CARRY4=  8 DSP48E1=0 RAM32M=0
-multiplicador            LUT=    0 FF=   0 CARRY4=  0 DSP48E1=2 RAM32M=0
-procesador_bareiss       LUT=  762 FF= 528 CARRY4= 13 DSP48E1=0 RAM32M=0
-ram_memory               LUT=    0 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=6
-rom_matriz               LUT=    5 FF=   0 CARRY4=  0 DSP48E1=0 RAM32M=0
-sumador_restador         LUT=   50 FF=   0 CARRY4= 26 DSP48E1=0 RAM32M=0
+procesador_bareiss       LUT=  657 FF= 518 CARRY4= 39 DSP48E1=4 RAM32M=12
 visualizador             LUT=  223 FF= 132 CARRY4= 13 DSP48E1=0 RAM32M=0
-TOTAL (jerarquico)       LUT= 1066 FF= 699 CARRY4= 60 DSP48E1=2 RAM32M=12
+TOTAL                    LUT=  906 FF= 689 CARRY4= 60 DSP48E1=4 RAM32M=12
 
 --- Diseno aplanado (synth_xilinx -flatten) ---
-     1798 cells (sin contar $scopeinfo)
-        1   BUFG
-       47   CARRY4
-        2   DSP48E1
-      697   FDCE
-        2   FDPE
-        6   IBUF
-       10   INV
-      215   LUT2
-      245   LUT3
-      180   LUT4
-      315   LUT5
-       47   LUT6
-       19   OBUF
-       12   RAM32M
-   LUT = 1002, FF = 699
+   LUT2 258, LUT3 171, LUT4 170, LUT5 196, LUT6 94  -> LUT = 889
+   FDCE 687, FDPE 2                                 -> FF  = 689
+   CARRY4 60, DSP48E1 4, RAM32M 12 (6 por RAM)
 
---- Comparacion con la version de 19 estados, aplanado ---
-anterior: LUT=1022 FF=780 CARRY4=47 DSP48E1=2 RAM32M=12
-actual:   LUT=1002 FF=699 CARRY4=47 DSP48E1=2 RAM32M=12
-(La division es solo por restas sucesivas: op = 1 siempre. Sin aplanar,
- sumador_restador conserva la suma y la resta (26 CARRY4); al aplanar, Yosys
- ve op constante y deja solo el restador. XST hace lo mismo si aplana la
- jerarquia; si la conserva, queda el sumador/restador completo.)
+--- Multiplicaciones del ASM (s8 y s9) ---
+El VHDL de alto nivel escribe la multiplicacion en dos estados. Sin
+compartir recursos, Yosys arma dos multiplicadores de 25 x 25 (2 DSP48E1
+cada uno). Con "share -aggressive" antes de synth_xilinx los junta en uno:
+   LUT = 1096, FF = 689, CARRY4 = 46, DSP48E1 = 2, RAM32M = 12
+XST hace lo mismo con su optimizacion Resource Sharing (activa por defecto):
+junta dos operaciones aritmeticas iguales que nunca se usan en el mismo ciclo.
+En el reporte de ISE se ve en "HDL Synthesis Report" (Multipliers: 1 o 2).

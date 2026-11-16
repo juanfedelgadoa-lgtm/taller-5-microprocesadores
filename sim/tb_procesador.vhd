@@ -1,14 +1,15 @@
 ----------------------------------------------------------------------------------
 -- TESTBENCH DEL PROCESADOR DE BAREISS (autoverificado)
 --
--- Lee la matriz de la ROM (otra instancia de rom_matriz), calcula el
+-- Lee la matriz de sim/rom_prueba.vhd (copia de la ROM), calcula el
 -- determinante y los pivotes esperados con pkg_prueba y los compara con las
 -- salidas binarias del procesador:
 --   1. Pulso de inicio (un ciclo, como el que entrega el antirrebote).
 --   2. Espera final y compara det.
 --   3. Recorre dir_p = 1..n y compara cada pivote (el pivote n debe ser det).
 --   4. Repite el calculo con un segundo inicio desde el estado final.
--- Sirve para cualquier matriz: si se cambia la ROM, no hay que tocar este archivo.
+-- Sirve para cualquier matriz: si se cambia la ROM con sim/modelo_referencia.py,
+-- no hay que tocar este archivo (el script tambien cambia sim/rom_prueba.vhd).
 --
 -- Solo para simulacion (usa variables, integer, real, string y wait).
 ----------------------------------------------------------------------------------

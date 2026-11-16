@@ -8,7 +8,7 @@
 --        dir_p = 2  -> pivote 2
 --        dir_p = 3  -> pivote 3 (negativo en la matriz por defecto)
 --        dir_p = n  -> ultimo pivote (= determinante)
--- Los valores esperados se calculan de la ROM con pkg_prueba.
+-- Los valores esperados se calculan con pkg_prueba a partir de sim/rom_prueba.vhd.
 -- Simula unos 80 ms (8 millones de ciclos): tarda algunos minutos.
 --
 -- Solo para simulacion (usa variables, integer, real, string y wait).
