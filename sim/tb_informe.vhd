@@ -7,8 +7,8 @@
 --   2. Pulso de inicio de un ciclo (como el que entrega el antirrebote).
 --   3. Espera final = 1 y deja dir_p = 0 ESPERA ciclos (el visualizador
 --      convierte det en 376 ciclos).
---   4. Recorre dir_p = 1..N (3 ciclos cada uno) para ver los pivotes en la
---      salida pivote. N es el tamano de la matriz que tenga la ROM.
+--   4. Recorre dir_p = 1..N (PASO_P ciclos cada uno) para ver los pivotes en
+--      la salida pivote. N es el tamano de la matriz que tenga la ROM.
 -- No compara resultados: las comprobaciones automaticas estan en
 -- tb_procesador.vhd, tb_visualizador.vhd y tb_det_bareiss.vhd.
 -- En ISim: agregar a la ventana de ondas st, i, j, k y cociente de uut, y
@@ -19,7 +19,8 @@ use IEEE.STD_LOGIC_1164.ALL;
 
 entity tb_informe is
     generic ( ESPERA : integer := 400;          -- ciclos con dir_p = 0 despues de final
-              N      : integer := 5 );          -- pivotes que se recorren con dir_p
+              N      : integer := 5;            -- pivotes que se recorren con dir_p
+              PASO_P : integer := 10 );         -- ciclos que se muestra cada pivote
 end tb_informe;
 
 architecture sim of tb_informe is
@@ -81,20 +82,20 @@ begin
         wait until final = '1';
         wait for ESPERA * 10 ns;                -- dir_p = 0: se ve det
         dir_p <= "001";
-        wait for 30 ns;
+        wait for PASO_P * 10 ns;
         dir_p <= "010";
-        wait for 30 ns;
+        wait for PASO_P * 10 ns;
         if N > 2 then
             dir_p <= "011";
-            wait for 30 ns;
+            wait for PASO_P * 10 ns;
         end if;
         if N > 3 then
             dir_p <= "100";
-            wait for 30 ns;
+            wait for PASO_P * 10 ns;
         end if;
         if N > 4 then
             dir_p <= "101";
-            wait for 30 ns;
+            wait for PASO_P * 10 ns;
         end if;
         dir_p <= "000";
         wait;

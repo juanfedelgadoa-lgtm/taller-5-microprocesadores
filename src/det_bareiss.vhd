@@ -5,7 +5,7 @@
 -- TOPE PARA LA NEXYS A7-100T (solo conexiones, descripcion estructural)
 --
 -- Une los 4 bloques del diseno:
---   divisor_frecuencia  -> tick de 1 ms y onda de 1 s
+--   divisor_frecuencia  -> tick de 1 ms
 --   antirrebote         -> un pulso de inicio por cada pulsacion de BTNC
 --   procesador_bareiss  -> ASM de Bareiss: det, pivote y final (en binario)
 --   visualizador        -> ASM XS3 + display de 8 digitos
@@ -24,7 +24,6 @@ entity det_bareiss is
            dir_p    : in  STD_LOGIC_VECTOR (2 downto 0);  -- SW2..SW0
            final    : out STD_LOGIC;                      -- LD0
            desborde : out STD_LOGIC;                      -- LD1: mas de 7 digitos
-           latido   : out STD_LOGIC;                      -- LD15: onda de 1 s
            an       : out STD_LOGIC_VECTOR (7 downto 0);
            seg      : out STD_LOGIC_VECTOR (6 downto 0);
            dp       : out STD_LOGIC);
@@ -34,8 +33,7 @@ architecture Estructural of det_bareiss is
 
 component divisor_frecuencia
     Port ( clk, rst : in  STD_LOGIC;
-           tick_1ms : out STD_LOGIC;
-           onda_1s  : out STD_LOGIC);
+           tick_1ms : out STD_LOGIC);
 end component;
 
 component antirrebote
@@ -73,7 +71,7 @@ signal det, pivote : STD_LOGIC_VECTOR (31 downto 0);
 begin
 
 U_FREC : divisor_frecuencia port map (
-    clk => clk, rst => rst, tick_1ms => tick_1ms, onda_1s => latido);
+    clk => clk, rst => rst, tick_1ms => tick_1ms);
 
 U_ANTI : antirrebote port map (
     clk => clk, rst => rst, tick => tick_1ms, boton => inicio, pulso => pulso_inicio);

@@ -19,7 +19,6 @@ NET "dir_p<2>" LOC = "M13" | IOSTANDARD = "LVCMOS33";    # SW2
 ## LEDs
 NET "final"    LOC = "H17" | IOSTANDARD = "LVCMOS33";    # LD0
 NET "desborde" LOC = "K15" | IOSTANDARD = "LVCMOS33";    # LD1
-NET "latido"   LOC = "V11" | IOSTANDARD = "LVCMOS33";    # LD15
 
 ## Display de 7 segmentos (catodos y anodos activos en bajo)
 NET "seg<0>" LOC = "T10" | IOSTANDARD = "LVCMOS33";      # CA

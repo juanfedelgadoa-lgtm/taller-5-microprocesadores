@@ -1,15 +1,39 @@
 """Diagramas ASM del informe (procesador de Bareiss y XS3) en draw.io.
 
-Cada diagrama se arma con cajas de estado, rombos de decisión, cajas de salida
-condicional y conectores. Antes de guardar se revisan las reglas del ASM:
-  1. cada rombo tiene una salida 1 y una salida 0; las demás cajas una sola salida;
-  2. todo camino desde una caja de estado llega a un estado o a un conector sin
-     pasar dos veces por la misma caja;
-  y que los estados siguientes coincidan con las tablas de uc_cd.py.
+Estilo de los ejemplos del profesor: cada caja de estado tiene el nombre del
+estado y todas sus operaciones; los rombos son las decisiones (salidas 1 y 0);
+las cajas redondeadas son las salidas condicionales; el recuadro rojo punteado
+agrupa cada bloque ASM. Cada ASM es un solo diagrama completo, sin hojas ni
+conectores.
+
+Revisión automática (revisar):
+  1. cada rombo tiene una salida 1 y una salida 0; las demás cajas, una sola;
+  2. para todas las combinaciones de las señales de estado, el camino dibujado
+     desde cada estado llega al mismo estado siguiente que la tabla de
+     transiciones de uc_cd.py (que se comprobó contra la simulación del VHDL).
 """
+import itertools
+import re
+
 import drawio as D
 
-ANCHO_1 = (-0.55, -9)       # posición de la etiqueta 1/0 cerca del rombo
+F = D.F
+EST = F + "rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;spacing=3;"
+DEC = F + "rhombus;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11.5;spacing=0;"
+CON = F + "rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=11.5;"
+BLQ = F + "rounded=0;html=1;fillColor=none;dashed=1;dashPattern=7 4;strokeColor=#D02020;strokeWidth=1.3;"
+ARI = ("edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;endSize=5;strokeColor=#000000;"
+       "fontSize=11;" + F)
+ETQ = ARI + "labelBackgroundColor=#FFFFFF;fontStyle=1;"
+TXT = F + "text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#D02020;fontStyle=1;"
+
+
+def plano(t):
+    return re.sub(r"<[^>]+>", " ", t).replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+
+
+def norm(t):
+    return " ".join(plano(t).split())
 
 
 class ASM(D.Diagrama):
@@ -17,235 +41,250 @@ class ASM(D.Diagrama):
         super().__init__(nombre)
         self.bloques = {}
 
-    def estado(self, nombre, x, y, w, h, texto):
-        i = self.nodo(x, y, w, h, texto, D.ESTADO, tipo=f"estado:{nombre}")
+    # -- cajas (x, y = centro arriba) -----------------------------------------
+    def estado(self, nombre, cx, y, w, ops, h=None):
+        lineas = [f"<b>{nombre.upper()}</b>"] + list(ops)
+        h = h or 15 * len(lineas) + 8
+        i = self.nodo(cx - w / 2, y, w, h, "<br>".join(lineas), EST, tipo=f"estado:{nombre}")
         self.bloques.setdefault(nombre, []).append(i)
         return i
 
-    def decision(self, bloque, x, y, w, h, texto):
-        i = self.nodo(x, y, w, h, texto, D.DECISION, tipo="decision")
+    def decision(self, bloque, cx, y, w, h, texto):
+        i = self.nodo(cx - w / 2, y, w, h, texto, DEC, tipo="decision")
         self.bloques[bloque].append(i)
         return i
 
-    def cond(self, bloque, x, y, w, h, texto):
-        i = self.nodo(x, y, w, h, texto, D.CONDICIONAL, tipo="condicional")
+    def cond(self, bloque, cx, y, w, texto, h=None):
+        h = h or 15 * (texto.count("<br>") + 1) + 12
+        i = self.nodo(cx - w / 2, y, w, h, texto, CON, tipo="condicional")
         self.bloques[bloque].append(i)
         return i
 
-    def conector(self, nombre, x, y, w=70, h=26, texto=None):
-        return self.nodo(x, y, w, h, texto or nombre, D.CONECTOR, tipo=f"conector:{nombre}")
+    def cy(self, i, rel=0.5):
+        return self.geo[i][1] + rel * self.geo[i][3]
 
-    def si(self, a, b, valor, salida, entrada=None, puntos=(), pos=ANCHO_1):
-        est = D.ARISTA + "labelBackgroundColor=#FFFFFF;fontStyle=1;fontSize=10;fontColor=#7F6000;"
-        return self.arista(a, b, str(valor), est, salida=salida, entrada=entrada, puntos=puntos, etiqueta_pos=pos)
+    def cond_en(self, bloque, cx, cy, w, texto):
+        """Salida condicional centrada en (cx, cy)."""
+        h = 15 * (texto.count("<br>") + 1) + 12
+        return self.cond(bloque, cx, cy - h / 2, w, texto)
 
-    def va(self, a, b, salida=None, entrada=None, puntos=()):
-        return self.arista(a, b, "", D.ARISTA, salida=salida, entrada=entrada, puntos=puntos)
+    def si(self, a, b, valor, salida, entrada=(0.5, 0), puntos=(), pos=(-0.6, 10)):
+        return self.arista(a, b, str(valor), ETQ, salida=salida, entrada=entrada, puntos=puntos, etiqueta_pos=pos)
 
-    def cerrar_bloques(self, extras=None):
-        extras = extras or {}
+    def va(self, a, b, salida=(0.5, 1), entrada=(0.5, 0), puntos=()):
+        return self.arista(a, b, "", ARI, salida=salida, entrada=entrada, puntos=puntos)
+
+    def cerrar_bloques(self, margen=6):
         for nombre, ids in self.bloques.items():
-            self.bloque(ids, nombre, extra=extras.get(nombre, (0, 0, 0, 0)))
+            xs = [self.geo[i][0] for i in ids]
+            ys = [self.geo[i][1] for i in ids]
+            x2 = [self.geo[i][0] + self.geo[i][2] for i in ids]
+            y2 = [self.geo[i][1] + self.geo[i][3] for i in ids]
+            x, y = min(xs) - margen, min(ys) - margen
+            w, h = max(x2) + margen - x, max(y2) + margen - y
+            self.celdas.insert(0, f'<mxCell id="b{nombre}" value="" style="{BLQ}" vertex="1" parent="1">'
+                                  f'<mxGeometry x="{x}" y="{y}" width="{w}" height="{h}" as="geometry"/></mxCell>')
 
     # -- revisión ------------------------------------------------------------
-    def caminos(self):
-        """{estado: [(camino de etiquetas, destino), ...]} siguiendo las aristas."""
+    def revisar(self, senales, filas, fila_de):
+        """senales: {texto del rombo: función(valores) -> 0/1}. filas/fila_de: tabla de la UC."""
+        errores = []
         salidas = {}
         for _, a, b, t in self.aristas:
             salidas.setdefault(a, []).append((b, t))
-        errores, res = [], {}
         for i, tipo in self.tipo.items():
             if not tipo:
                 continue
-            n = len(salidas.get(i, []))
+            etq = sorted(t for _, t in salidas.get(i, []))
             if tipo == "decision":
-                etq = sorted(t for _, t in salidas.get(i, []))
                 if etq != ["0", "1"]:
-                    errores.append(f"rombo '{self.texto[i]}' con salidas {etq}")
-            elif tipo.startswith("estado") or tipo == "condicional":
-                if n != 1:
-                    errores.append(f"caja '{self.texto[i]}' con {n} salidas")
-        for i, tipo in self.tipo.items():
-            if not tipo or not tipo.startswith("estado:"):
-                continue
-            nombre = tipo.split(":")[1]
-
-            def seguir(nodo, visto, camino):
-                for b, t in salidas.get(nodo, []):
-                    tb = self.tipo.get(b) or ""
-                    paso = camino + ([f"{self.texto[nodo]}={t}"] if t else [])
-                    if tb.startswith("estado:") or tb.startswith("conector:"):
-                        res.setdefault(nombre, []).append((paso, tb.split(":")[1]))
-                    elif b in visto:
-                        errores.append(f"{nombre}: ciclo sin pasar por un estado")
+                    errores.append(f"rombo '{norm(self.texto[i])}' con salidas {etq}")
+                if norm(self.texto[i]) not in senales:
+                    errores.append(f"rombo '{norm(self.texto[i])}' sin señal asociada")
+            elif len(etq) != 1:
+                errores.append(f"caja '{norm(self.texto[i])}' con {len(etq)} salidas")
+        if errores:
+            return errores, 0
+        bases = sorted({k for c in filas.values() for cond, _, _ in c for k in cond} | {"sq"})
+        estados = {tipo.split(":")[1]: i for i, tipo in self.tipo.items() if tipo and tipo.startswith("estado:")}
+        revisadas = 0
+        for nombre, caja in estados.items():
+            for valores in itertools.product((0, 1), repeat=len(bases)):
+                v = dict(zip(bases, valores))
+                nodo, pasos = salidas[caja][0][0], 0
+                while not (self.tipo.get(nodo) or "").startswith("estado:"):
+                    pasos += 1
+                    if pasos > 50:
+                        errores.append(f"{nombre}: camino sin fin con {v}")
+                        break
+                    if self.tipo[nodo] == "decision":
+                        bit = str(senales[norm(self.texto[nodo])](v))
+                        nodo = next(b for b, t in salidas[nodo] if t == bit)
                     else:
-                        seguir(b, visto | {b}, paso)
-            seguir(i, {i}, [])
-        return res, errores
-
-
-def h(s):
-    return s
+                        nodo = salidas[nodo][0][0]
+                destino = self.tipo[nodo].split(":")[1]
+                esperado, _ = fila_de(filas, nombre, v)
+                revisadas += 1
+                if destino != esperado:
+                    errores.append(f"{nombre}: con {v} el ASM va a {destino} y la tabla a {esperado}")
+                    break
+        return errores, revisadas
 
 
 # ===========================================================================
-# Procesador de Bareiss
+# Procesador de Bareiss: un solo diagrama en dos columnas
 # ===========================================================================
-def asm_hoja1():
-    d = ASM("asm_bareiss_1")
-    cx = 255
-    d.etiqueta(cx - 40, 0, 80, 18, "rst", D.TEXTO + D.ROJO)
-    s0 = d.estado("s0", cx - 90, 40, 180, 38, "final = 0")
-    d.linea((cx, 18), (cx, 40), "", D.ARISTA)
-    di = d.decision("s0", cx - 60, 98, 120, 50, "inicio")
-    d.va(s0, di)
-    d.si(di, s0, 0, salida=(0, 0.5), entrada=(0.25, 0), puntos=[(cx - 120, 123), (cx - 120, 26), (cx - 45, 26)])
-    c0 = d.cond("s0", cx - 95, 172, 190, 46, "n ← a(2..0) ; dira ← 1<br>i ← 1 ; j ← 1")
-    d.si(di, c0, 1, salida=(0.5, 1))
-    s1 = d.estado("s1", cx - 100, 262, 200, 44, "RAM(i,j) ← a (extensión de signo)<br>dira ← dira + 1")
+SENALES_P = {
+    "INICIO": lambda v: v["inicio"],
+    "RAM(K,K) = 0": lambda v: v["z_b"],
+    "RAM(I,K) = 0": lambda v: v["z_a"],
+    "I = N": lambda v: v["i_n"],
+    "J = N": lambda v: v["j_n"],
+    "K + 1 = N": lambda v: v["k1_n"],
+    "R(49) = S(49)": lambda v: v["ms"],
+    "K + 1 = N Y SIGNO = 1": lambda v: v["k1_n"] & v["sg"],
+    "R = T": lambda v: v["rt"],
+    "SQ": lambda v: v["sq"],
+}
+
+
+def asm_bareiss():
+    d = ASM("asm_bareiss")
+    A, B = 175, 700                         # centros de las dos columnas
+    # ---------------------------------------------------------------- s0
+    d.etiqueta(A - 20, 0, 40, 16, "rst", TXT)
+    s0 = d.estado("s0", A, 30, 150, ["FINAL = 0"])
+    d.linea((A, 16), (A, 30), "", ARI)
+    i0 = d.decision("s0", A, 88, 110, 44, "INICIO")
+    d.va(s0, i0)
+    d.si(i0, s0, 0, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(40, d.cy(i0)), (40, d.cy(s0))], pos=(-0.75, -9))
+    c0 = d.cond("s0", A, 152, 175, "N = ROM(0) ; DIRA = 1<br>I = 1 ; J = 1")
+    d.si(i0, c0, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    # ---------------------------------------------------------------- s1
+    s1 = d.estado("s1", A, 222, 175, ["RAM(I,J) = ROM(DIRA)", "DIRA = DIRA + 1"])
     d.va(c0, s1)
-    dn = d.decision("s1", cx - 55, 326, 110, 46, "i = n")
-    d.va(s1, dn)
-    ci = d.cond("s1", cx + 95, 330, 110, 38, "i ← i + 1")
-    d.si(dn, ci, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(ci, s1, salida=(1, 0.5), entrada=(0.75, 0), puntos=[(cx + 240, 349), (cx + 240, 245), (cx + 50, 245)])
-    dj = d.decision("s1", cx - 55, 396, 110, 46, "j = n")
-    d.si(dn, dj, 1, salida=(0.5, 1))
-    cj = d.cond("s1", cx + 95, 400, 130, 38, "i ← 1 ; j ← j + 1")
-    d.si(dj, cj, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(cj, s1, salida=(1, 0.5), entrada=(0.75, 0), puntos=[(cx + 240, 419), (cx + 240, 245), (cx + 50, 245)])
-    cf = d.cond("s1", cx - 95, 466, 190, 46, "k ← 1 ; j ← 1<br>p ← 1 ; signo ← 0")
-    d.si(dj, cf, 1, salida=(0.5, 1))
-    a = d.conector("s2", cx - 35, 540)
-    d.va(cf, a)
-    d.cerrar_bloques()
-    return d
-
-
-def asm_hoja2():
-    d = ASM("asm_bareiss_2")
-    cx = 270
-    e1 = d.conector("s2", cx - 165, 0, 130, 26, "desde s1, s5 o s12")
-    s2 = d.estado("s2", cx - 95, 50, 190, 44, "piv ← qb = a(k,k)<br>i ← k + 1")
-    d.va(e1, s2, salida=(0.5, 1), entrada=(0.25, 0), puntos=[(cx - 100, 36), (cx - 47, 36)])
-    dz = d.decision("s2", cx - 65, 114, 130, 50, "a(k,k) = 0")
+    di = d.decision("s1", A, 296, 100, 44, "I = N")
+    d.va(s1, di)
+    ci = d.cond_en("s1", 318, d.cy(di), 96, "I = I + 1")
+    d.si(di, ci, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.2, -9))
+    d.va(ci, s1, salida=(1, 0.5), entrada=(1, 0.3), puntos=[(392, d.cy(ci)), (392, d.cy(s1, 0.3))])
+    dj = d.decision("s1", A, 364, 100, 44, "J = N")
+    d.si(di, dj, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    cj = d.cond_en("s1", 318, d.cy(dj), 120, "I = 1 ; J = J + 1")
+    d.si(dj, cj, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.2, -9))
+    d.va(cj, s1, salida=(1, 0.5), entrada=(1, 0.7), puntos=[(406, d.cy(cj)), (406, d.cy(s1, 0.7))])
+    cf = d.cond("s1", A, 432, 175, "K = 1 ; J = 1<br>P = 1 ; SIGNO = 0")
+    d.si(dj, cf, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    # ---------------------------------------------------------------- s2
+    s2 = d.estado("s2", A, 504, 175, ["PIV = RAM(K,K)", "I = K + 1"])
+    d.va(cf, s2)
+    dz = d.decision("s2", A, 580, 130, 48, "RAM(K,K) = 0")
     d.va(s2, dz)
-    cb = d.cond("s2", cx + 95, 119, 120, 40, "banco(k) ← qb")
-    d.si(dz, cb, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    c6 = d.conector("s6", cx + 245, 126, 60, 26)
-    d.va(cb, c6)
-    s3 = d.estado("s3", cx - 95, 226, 190, 38, "<i>busca una fila con a(i,k) ≠ 0</i>")
-    d.si(dz, s3, 1, salida=(0.5, 1), pos=(-0.45, -9))
-    da = d.decision("s3", cx - 65, 284, 130, 50, "a(i,k) = 0")
+    cb = d.cond_en("s2", 335, d.cy(dz), 140, "BANCO(K) = RAM(K,K)")
+    d.si(dz, cb, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    # ---------------------------------------------------------------- s3
+    s3 = d.estado("s3", A, 656, 150, [])
+    d.si(dz, s3, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    da = d.decision("s3", A, 704, 130, 48, "RAM(I,K) = 0")
     d.va(s3, da)
-    dn = d.decision("s3", cx + 105, 284, 110, 50, "i = n")
-    d.si(da, dn, 1, salida=(1, 0.5), pos=(-0.3, -9))
-    ci = d.cond("s3", cx + 240, 291, 100, 36, "i ← i + 1")
-    d.si(dn, ci, 0, salida=(1, 0.5), pos=(-0.2, -9))
-    d.va(ci, s3, salida=(0.5, 0), entrada=(1, 0.5), puntos=[(cx + 290, 245)])
-    cdet = d.cond("s3", cx + 110, 360, 100, 36, "det ← 0")
-    d.si(dn, cdet, 1, salida=(0.5, 1))
-    c13 = d.conector("s13", cx + 125, 426, 70, 26)
-    d.va(cdet, c13)
-    cs = d.cond("s3", cx - 95, 364, 190, 36, "signo ← not signo")
-    d.si(da, cs, 0, salida=(0.5, 1))
-    s4 = d.estado("s4", cx - 95, 456, 190, 44, "RAM(i,j) ← qb = a(k,j)<br>tmp ← qa = a(i,j)")
-    d.va(cs, s4)
-    s5 = d.estado("s5", cx - 95, 546, 190, 38, "RAM(k,j) ← tmp")
+    dn = d.decision("s3", 322, d.cy(da) - 22, 100, 44, "I = N")
+    d.si(da, dn, 1, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    ci3 = d.cond_en("s3", 322, d.cy(s3), 96, "I = I + 1")
+    d.si(dn, ci3, 0, salida=(0.5, 0), entrada=(0.5, 1), pos=(-0.2, 9))
+    d.va(ci3, s3, salida=(0, 0.5), entrada=(1, 0.5))
+    cd0 = d.cond("s3", 322, 776, 96, "DET = 0")
+    d.si(dn, cd0, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    csg = d.cond("s3", A, 776, 160, "SIGNO = NOT SIGNO")
+    d.si(da, csg, 0, salida=(0.5, 1), pos=(-0.3, 9))
+    # ---------------------------------------------------------------- s4, s5
+    s4 = d.estado("s4", A, 836, 175, ["RAM(I,J) = RAM(K,J)", "TMP = RAM(I,J)"])
+    d.va(csg, s4)
+    s5 = d.estado("s5", A, 918, 175, ["RAM(K,J) = TMP"])
     d.va(s4, s5)
-    dj = d.decision("s5", cx - 55, 604, 110, 50, "j = n")
-    d.va(s5, dj)
-    cj = d.cond("s5", cx + 85, 610, 110, 38, "j ← j + 1")
-    d.si(dj, cj, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(cj, s4, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(cx + 230, 629), (cx + 230, 478)])
-    ck = d.cond("s5", cx - 95, 678, 190, 38, "j ← k")
-    d.si(dj, ck, 1, salida=(0.5, 1))
-    d.va(ck, s2, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(cx - 165, 697), (cx - 165, 72)])
-    d.cerrar_bloques()
-    return d
-
-
-def asm_hoja3():
-    d = ASM("asm_bareiss_3")
-    cx = 250
-    e = d.conector("s6", cx - 175, 0, 130, 26, "desde s2 o s12")
-    s6 = d.estado("s6", cx - 95, 64, 190, 44, "aik ← qa = a(i,k)<br>j ← k + 1")
-    d.va(e, s6, salida=(0.5, 1), entrada=(0.25, 0), puntos=[(cx - 110, 36), (cx - 47, 36)])
-    s7 = d.estado("s7", cx - 95, 154, 190, 44, "x ← piv<br>y ← qa = a(i,j)")
+    d5 = d.decision("s5", A, 978, 100, 44, "J = N")
+    d.va(s5, d5)
+    cj5 = d.cond_en("s5", 318, d.cy(d5), 96, "J = J + 1")
+    d.si(d5, cj5, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.2, -9))
+    d.va(cj5, s4, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(395, d.cy(cj5)), (395, d.cy(s4))])
+    ck5 = d.cond("s5", A, 1046, 100, "J = K")
+    d.si(d5, ck5, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    d.va(ck5, s2, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(25, d.cy(ck5)), (25, d.cy(s2))])
+    # ---------------------------------------------------------------- s13
+    s13 = d.estado("s13", A, 1112, 150, ["FINAL = 1"])
+    d.va(cd0, s13, salida=(1, 0.5), entrada=(1, 0.3), puntos=[(420, d.cy(cd0)), (420, d.cy(s13, 0.3))])
+    i13 = d.decision("s13", A, 1170, 110, 44, "INICIO")
+    d.va(s13, i13)
+    d.si(i13, s13, 0, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(40, d.cy(i13)), (40, d.cy(s13))], pos=(-0.75, -9))
+    c13 = d.cond("s13", A, 1236, 175, "DIRA = 1 ; I = 1 ; J = 1")
+    d.si(i13, c13, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    d.va(c13, s1, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(10, d.cy(c13)), (10, d.cy(s1))])
+    # ---------------------------------------------------------------- s6 a s10
+    s6 = d.estado("s6", B, 30, 175, ["AIK = RAM(I,K)", "J = K + 1"])
+    d.va(cb, s6, salida=(1, 0.5), entrada=(0.5, 0), puntos=[(455, d.cy(cb)), (455, 12), (B, 12)])
+    s7 = d.estado("s7", B, 108, 175, ["X = PIV", "Y = RAM(I,J)"])
     d.va(s6, s7)
-    e7 = d.conector("s7", cx + 150, 163, 100, 26, "desde s12")
-    d.va(e7, s7, salida=(0, 0.5), entrada=(1, 0.5))
-    s8 = d.estado("s8", cx - 110, 244, 220, 58, "r ← x·y = piv·a(i,j)<br>x ← aik<br>y ← qb = a(k,j)")
+    s8 = d.estado("s8", B, 186, 175, ["R = X * Y", "X = AIK", "Y = RAM(K,J)"])
     d.va(s7, s8)
-    s9 = d.estado("s9", cx - 95, 348, 190, 36, "s ← x·y = a(i,k)·a(k,j)")
+    s9 = d.estado("s9", B, 279, 175, ["S = X * Y"])
     d.va(s8, s9)
-    s10 = d.estado("s10", cx - 95, 430, 190, 58, "r ← r − s<br>s ← p (extensión de signo)<br>cociente ← 0")
+    s10 = d.estado("s10", B, 342, 175, ["R = R − S", "S = P", "COCIENTE = 0"])
     d.va(s9, s10)
-    s11 = d.estado("s11", cx - 95, 534, 190, 36, "<i>prepara la división r / s</i>")
+    # ---------------------------------------------------------------- s11
+    s11 = d.estado("s11", B, 435, 150, [])
     d.va(s10, s11)
-    dm = d.decision("s11", cx - 70, 590, 140, 54, "r(49) = s(49)")
+    dm = d.decision("s11", B, 482, 130, 48, "R(49) = S(49)")
     d.va(s11, dm)
-    c_ig = d.cond("s11", cx - 215, 668, 120, 36, "t ← 0")
-    c_di = d.cond("s11", cx + 95, 668, 120, 40, "t ← r<br>r ← 0")
-    d.si(dm, c_ig, 1, salida=(0, 0.5), entrada=(0.5, 0), puntos=[(cx - 155, 617)], pos=(-0.5, -9))
-    d.si(dm, c_di, 0, salida=(1, 0.5), entrada=(0.5, 0), puntos=[(cx + 155, 617)], pos=(-0.5, -9))
-    dk = d.decision("s11", cx - 60, 740, 120, 50, "k + 1 = n")
-    d.va(c_ig, dk, salida=(0.5, 1), entrada=(0.5, 0), puntos=[(cx - 155, 724), (cx, 724)])
-    d.va(c_di, dk, salida=(0.5, 1), entrada=(0.5, 0), puntos=[(cx + 155, 724), (cx, 724)])
-    q0 = d.cond("s11", cx - 90, 836, 180, 40, "sq ← r(49) ⊕ s(49)")
-    d.si(dk, q0, 0, salida=(0.5, 1), pos=(-0.45, -9))
-    ds = d.decision("s11", cx + 120, 740, 100, 50, "signo")
-    d.si(dk, ds, 1, salida=(1, 0.5), pos=(-0.2, -9))
-    d.si(ds, q0, 0, salida=(0.5, 1), entrada=(1, 0.5), puntos=[(cx + 170, 856)], pos=(-0.6, -9))
-    q1 = d.cond("s11", cx + 245, 745, 185, 40, "sq ← not (r(49) ⊕ s(49))")
-    d.si(ds, q1, 1, salida=(1, 0.5), pos=(-0.2, -9))
-    c12 = d.conector("s12", cx - 35, 926)
-    d.va(q0, c12)
-    d.va(q1, c12, salida=(0.5, 1), entrada=(0.5, 0), puntos=[(cx + 337, 906), (cx, 906)])
-    d.cerrar_bloques()
-    return d
-
-
-def asm_hoja4():
-    d = ASM("asm_bareiss_4")
-    cx = 260
-    e = d.conector("s12", cx - 185, 0, 100, 26, "desde s11")
-    s12 = d.estado("s12", cx - 95, 64, 190, 36, "<i>división por restas sucesivas</i>")
-    d.va(e, s12, salida=(0.5, 1), entrada=(0.25, 0), puntos=[(cx - 135, 36), (cx - 47, 36)])
-    dr = d.decision("s12", cx - 55, 120, 110, 50, "r = t")
-    d.va(s12, dr)
-    cr = d.cond("s12", cx + 80, 122, 190, 46, "r ← r − s<br>cociente ← cociente ± 1")
-    d.si(dr, cr, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(cr, s12, salida=(0.5, 0), entrada=(1, 0.5), puntos=[(cx + 175, 82)])
-    cw = d.cond("s12", cx - 95, 194, 190, 36, "RAM(i,j) ← cociente")
-    d.si(dr, cw, 1, salida=(0.5, 1))
-    dj = d.decision("s12", cx - 55, 250, 110, 50, "j = n")
-    d.va(cw, dj)
-    cj = d.cond("s12", cx + 80, 256, 110, 38, "j ← j + 1")
-    d.si(dj, cj, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(cj, d.conector("s7", cx + 300, 262, 60, 26))
-    di = d.decision("s12", cx - 55, 324, 110, 50, "i = n")
-    d.si(dj, di, 1, salida=(0.5, 1))
-    ci = d.cond("s12", cx + 80, 330, 110, 38, "i ← i + 1<br>j ← k")
-    d.si(di, ci, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(ci, d.conector("s6", cx + 300, 336, 60, 26))
-    dk = d.decision("s12", cx - 60, 398, 120, 50, "k + 1 = n")
-    d.si(di, dk, 1, salida=(0.5, 1))
-    ck = d.cond("s12", cx + 80, 400, 165, 46, "p ← piv ; k ← k + 1<br>j ← k + 1")
-    d.si(dk, ck, 0, salida=(1, 0.5), pos=(-0.4, -9))
-    d.va(ck, d.conector("s2", cx + 300, 410, 60, 26))
-    cd = d.cond("s12", cx - 95, 472, 190, 36, "det ← cociente")
-    d.si(dk, cd, 1, salida=(0.5, 1))
-    e13 = d.conector("s13", cx - 225, 552, 90, 26, "desde s3")
-    s13 = d.estado("s13", cx - 95, 562, 190, 36, "final = 1")
-    d.va(cd, s13)
-    d.va(e13, s13, salida=(1, 0.5), entrada=(0, 0.5), puntos=[(cx - 115, 565), (cx - 115, 580)])
-    dn = d.decision("s13", cx - 55, 618, 110, 50, "inicio")
-    d.va(s13, dn)
-    d.si(dn, s13, 0, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(cx + 125, 643), (cx + 125, 580)], pos=(-0.3, -9))
-    cn = d.cond("s13", cx - 95, 692, 190, 40, "dira ← 1 ; i ← 1 ; j ← 1")
-    d.si(dn, cn, 1, salida=(0.5, 1))
-    d.va(cn, d.conector("s1", cx - 35, 762))
+    ct0 = d.cond("s11", 568, 540, 96, "T = 0")
+    ctr = d.cond("s11", 840, 540, 120, "T = R ; R = 0")
+    d.si(dm, ct0, 1, salida=(0, 0.5), puntos=[(568, 506)], pos=(-0.5, -9))
+    d.si(dm, ctr, 0, salida=(1, 0.5), puntos=[(840, 506)], pos=(-0.5, -9))
+    dks = d.decision("s11", B, 598, 180, 56, "K + 1 = N Y<br>SIGNO = 1")
+    d.va(ct0, dks, puntos=[(568, 584), (B, 584)])
+    d.va(ctr, dks, puntos=[(840, 584), (B, 584)])
+    cq1 = d.cond("s11", 568, 664, 165, "SQ = NOT (R(49) ⊕ S(49))")
+    cq0 = d.cond("s11", 845, 664, 140, "SQ = R(49) ⊕ S(49)")
+    d.si(dks, cq1, 1, salida=(0, 0.5), puntos=[(568, 626)], pos=(-0.5, -9))
+    d.si(dks, cq0, 0, salida=(1, 0.5), puntos=[(845, 626)], pos=(-0.5, -9))
+    # ---------------------------------------------------------------- s12
+    s12 = d.estado("s12", B, 730, 150, [])
+    d.va(cq1, s12, puntos=[(568, 712), (B, 712)])
+    d.va(cq0, s12, puntos=[(845, 712), (B, 712)])
+    drt = d.decision("s12", B, 778, 100, 44, "R = T")
+    d.va(s12, drt)
+    crs = d.cond_en("s12", 862, d.cy(drt), 100, "R = R − S")
+    d.si(drt, crs, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    dsq = d.decision("s12", 862, d.cy(crs, 1) + 22, 76, 40, "SQ")
+    d.va(crs, dsq)
+    cmas = d.cond("s12", 862, d.cy(dsq, 1) + 20, 112, "COCIENTE =<br>COCIENTE + 1")
+    d.si(dsq, cmas, 0, salida=(0.5, 1), pos=(-0.3, 9))
+    cmen = d.cond("s12", 862, d.cy(cmas, 1) + 16, 112, "COCIENTE =<br>COCIENTE − 1")
+    d.si(dsq, cmen, 1, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(795, d.cy(dsq)), (795, d.cy(cmen))],
+         pos=(-0.9, -9))
+    vuelta = d.geo[s12][1] - 9
+    d.va(cmas, s12, salida=(1, 0.5), entrada=(0.9, 0), puntos=[(945, d.cy(cmas)), (945, vuelta), (760, vuelta)])
+    d.va(cmen, s12, salida=(1, 0.5), entrada=(0.9, 0), puntos=[(945, d.cy(cmen)), (945, vuelta), (760, vuelta)])
+    cw = d.cond("s12", B, 846, 165, "RAM(I,J) = COCIENTE")
+    d.si(drt, cw, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    dj12 = d.decision("s12", B, d.cy(cmen, 1) + 22, 100, 44, "J = N")
+    d.va(cw, dj12)
+    cj12 = d.cond_en("s12", 862, d.cy(dj12), 100, "J = J + 1")
+    d.si(dj12, cj12, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    d.va(cj12, s7, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(960, d.cy(cj12)), (960, d.cy(s7))])
+    di12 = d.decision("s12", B, d.cy(dj12, 1) + 18, 100, 44, "I = N")
+    d.si(dj12, di12, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    ci12 = d.cond_en("s12", 862, d.cy(di12), 100, "I = I + 1<br>J = K")
+    d.si(di12, ci12, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    d.va(ci12, s6, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(975, d.cy(ci12)), (975, d.cy(s6))])
+    dk12 = d.decision("s12", B, d.cy(di12, 1) + 18, 110, 48, "K + 1 = N")
+    d.si(di12, dk12, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    ck12 = d.cond_en("s12", 875, d.cy(dk12), 145, "P = PIV<br>K = K + 1 ; J = K + 1")
+    d.si(dk12, ck12, 0, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    d.va(ck12, s2, salida=(1, 0.5), entrada=(1, 0.5),
+         puntos=[(990, d.cy(ck12)), (990, -6), (440, -6), (440, d.cy(s2))])
+    cdc = d.cond("s12", B, d.cy(dk12, 1) + 22, 150, "DET = COCIENTE")
+    d.si(dk12, cdc, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    d.va(cdc, s13, salida=(0.5, 1), entrada=(1, 0.7), puntos=[(B, d.cy(cdc, 1) + 14), (432, d.cy(cdc, 1) + 14),
+                                                                     (432, d.cy(s13, 0.7))])
     d.cerrar_bloques()
     return d
 
@@ -253,78 +292,67 @@ def asm_hoja4():
 # ===========================================================================
 # Visualizador (XS3)
 # ===========================================================================
+SENALES_V = {
+    "FINAL": lambda v: v["final"],
+    "VAL(31)": lambda v: v["val_neg"],
+    "CONT = 31": lambda v: v["cont_31"],
+    "DÍGITO(D) > 4": lambda v: v["dig_4"],
+    "D = 9": lambda v: v["d_9"],
+}
+
+
 def asm_xs3():
     d = ASM("asm_xs3")
-    cx = 290
-    d.etiqueta(cx - 40, 0, 80, 18, "rst", D.TEXTO + D.ROJO)
-    x0 = d.estado("x0", cx - 95, 40, 190, 36, "<i>espera final</i>")
-    d.linea((cx, 18), (cx, 40), "", D.ARISTA)
-    df = d.decision("x0", cx - 55, 96, 110, 48, "final")
+    C = 300
+    d.etiqueta(C - 20, 0, 40, 16, "rst", TXT)
+    x0 = d.estado("x0", C, 30, 150, [])
+    d.linea((C, 16), (C, 30), "", ARI)
+    df = d.decision("x0", C, 78, 110, 44, "FINAL")
     d.va(x0, df)
-    d.si(df, x0, 0, salida=(0, 0.5), entrada=(0.25, 0), puntos=[(cx - 120, 120), (cx - 120, 28), (cx - 47, 28)])
-    dv = d.decision("x0", cx - 55, 164, 110, 48, "val(31)")
-    d.si(df, dv, 1, salida=(0.5, 1))
-    cneg = d.cond("x0", cx - 230, 216, 160, 40, "bin ← 0 − val<br>neg ← val(31)")
-    cpos = d.cond("x0", cx + 70, 216, 160, 40, "bin ← val<br>neg ← val(31)")
-    d.si(dv, cneg, 1, salida=(0, 0.5), entrada=(0.5, 0), puntos=[(cx - 150, 188)], pos=(-0.5, -9))
-    d.si(dv, cpos, 0, salida=(1, 0.5), entrada=(0.5, 0), puntos=[(cx + 150, 188)], pos=(-0.5, -9))
-    x1 = d.estado("x1", cx - 95, 312, 190, 40, "PASO 1:<br>dec ← 0 ; cont ← 0")
-    d.va(cneg, x1, salida=(0.5, 1), entrada=(0.5, 0), puntos=[(cx - 150, 278), (cx, 278)])
-    d.va(cpos, x1, salida=(0.5, 1), entrada=(0.5, 0), puntos=[(cx + 150, 278), (cx, 278)])
-    x2 = d.estado("x2", cx - 95, 404, 190, 40, "PASO 2:<br>dec(0) ← bin(31)")
+    d.si(df, x0, 0, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(185, d.cy(df)), (185, d.cy(x0))], pos=(-0.7, -9))
+    dv = d.decision("x0", C, 144, 110, 44, "VAL(31)")
+    d.si(df, dv, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    cneg = d.cond("x0", 150, 196, 150, "BIN = 0 − VAL<br>NEG = VAL(31)")
+    cpos = d.cond("x0", 450, 196, 150, "BIN = VAL<br>NEG = VAL(31)")
+    d.si(dv, cneg, 1, salida=(0, 0.5), puntos=[(150, 166)], pos=(-0.5, -9))
+    d.si(dv, cpos, 0, salida=(1, 0.5), puntos=[(450, 166)], pos=(-0.5, -9))
+    x1 = d.estado("x1", C, 268, 175, ["DEC = 0", "CONT = 0"], )
+    d.va(cneg, x1, puntos=[(150, 252), (C, 252)])
+    d.va(cpos, x1, puntos=[(450, 252), (C, 252)])
+    x2 = d.estado("x2", C, 348, 175, ["DEC(0) = BIN(31)"])
     d.va(x1, x2)
-    dc = d.decision("x2", cx - 60, 464, 120, 48, "cont = 31")
+    dc = d.decision("x2", C, 408, 120, 46, "CONT = 31")
     d.va(x2, dc)
-    cd = d.cond("x2", cx - 80, 532, 160, 32, "d ← 0")
-    d.si(dc, cd, 0, salida=(0.5, 1))
-    x5 = d.estado("x5", cx + 140, 468, 150, 40, "disp ← dec<br>disp_neg ← neg")
-    d.si(dc, x5, 1, salida=(1, 0.5), pos=(-0.3, -9))
-    d.va(x5, x0, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(cx + 325, 488), (cx + 325, 58)])
-    x3 = d.estado("x3", cx - 95, 616, 190, 40, "PASO 3: revisa el<br>dígito d de dec")
+    x5 = d.estado("x5", 495, d.cy(dc) - 26.5, 160, ["DISP = DEC", "DISP_NEG = NEG"])
+    d.si(dc, x5, 1, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.3, -9))
+    d.va(x5, x0, salida=(1, 0.5), entrada=(1, 0.5), puntos=[(600, d.cy(x5)), (600, d.cy(x0))])
+    cd = d.cond("x2", C, 474, 110, "D = 0")
+    d.si(dc, cd, 0, salida=(0.5, 1), pos=(-0.3, 9))
+    x3 = d.estado("x3", C, 530, 150, [])
     d.va(cd, x3)
-    dg = d.decision("x3", cx - 60, 676, 120, 48, "dígito(d) > 4")
+    dg = d.decision("x3", C, 578, 140, 48, "DÍGITO(D) &gt; 4")
     d.va(x3, dg)
-    c3 = d.cond("x3", cx + 90, 681, 150, 38, "dígito(d) ←<br>dígito(d) + 3")
-    d.si(dg, c3, 1, salida=(1, 0.5), pos=(-0.4, -9))
-    d9 = d.decision("x3", cx - 55, 748, 110, 48, "d = 9")
-    d.si(dg, d9, 0, salida=(0.5, 1))
-    d.va(c3, d9, salida=(0.5, 1), entrada=(1, 0.5), puntos=[(cx + 165, 772)])
-    cdd = d.cond("x3", cx - 245, 753, 110, 38, "d ← d + 1")
-    d.si(d9, cdd, 0, salida=(0, 0.5), pos=(-0.4, -9))
-    d.va(cdd, x3, salida=(0.5, 0), entrada=(0, 0.5), puntos=[(cx - 190, 636)])
-    x4 = d.estado("x4", cx - 95, 836, 190, 58, "PASO 4: dec ← dec &lt;&lt; 1<br>bin ← bin &lt;&lt; 1<br>cont ← cont + 1")
-    d.si(d9, x4, 1, salida=(0.5, 1))
-    d.va(x4, x2, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(cx - 275, 865), (cx - 275, 424)])
+    c3 = d.cond_en("x3", 475, d.cy(dg), 150, "DÍGITO(D) =<br>DÍGITO(D) + 3")
+    d.si(dg, c3, 1, salida=(1, 0.5), entrada=(0, 0.5), pos=(-0.1, -9))
+    d9 = d.decision("x3", C, 650, 100, 44, "D = 9")
+    d.si(dg, d9, 0, salida=(0.5, 1), pos=(-0.3, 9))
+    d.va(c3, d9, salida=(0.5, 1), entrada=(1, 0.5), puntos=[(475, d.cy(d9))])
+    cdd = d.cond_en("x3", 160, d.cy(d9), 100, "D = D + 1")
+    d.si(d9, cdd, 0, salida=(0, 0.5), entrada=(1, 0.5), pos=(-0.2, -9))
+    d.va(cdd, x3, salida=(0.5, 0), entrada=(0, 0.5), puntos=[(160, d.cy(x3))])
+    x4 = d.estado("x4", C, 720, 175, ["DEC = DEC &lt;&lt; 1", "BIN = BIN &lt;&lt; 1", "CONT = CONT + 1"])
+    d.si(d9, x4, 1, salida=(0.5, 1), pos=(-0.3, 9))
+    d.va(x4, x2, salida=(0, 0.5), entrada=(0, 0.5), puntos=[(95, d.cy(x4)), (95, d.cy(x2))])
     d.cerrar_bloques()
     return d
 
 
-HOJAS_BAREISS = [asm_hoja1, asm_hoja2, asm_hoja3, asm_hoja4]
+def todas():
+    return [asm_bareiss(), asm_xs3()]
 
 
-def revisar_bareiss(filas, filas_v):
-    """Compara los estados siguientes dibujados con las tablas de la UC."""
-    errores = []
-    caminos = {}
-    for f in HOJAS_BAREISS:
-        c, e = f().caminos()
-        errores += e
-        for k, v in c.items():
-            caminos.setdefault(k, []).extend(v)
-    for e, lista in filas.items():
-        dib = sorted({dest for _, dest in caminos.get(e, [])})
-        tab = sorted({s for _, s, _ in lista})
-        if dib != tab:
-            errores.append(f"{e}: el ASM va a {dib} y la tabla de la UC a {tab}")
-        if len(caminos.get(e, [])) != len(lista):
-            errores.append(f"{e}: {len(caminos.get(e, []))} caminos en el ASM y {len(lista)} filas en la UC")
-    c, e = asm_xs3().caminos()
-    errores += e
-    for st, lista in filas_v.items():
-        dib = sorted({dest for _, dest in c.get(st, [])})
-        tab = sorted({s for _, s, _ in lista})
-        if dib != tab:
-            errores.append(f"{st}: el ASM va a {dib} y la tabla de la UC a {tab}")
-        if len(c.get(st, [])) != len(lista):
-            errores.append(f"{st}: {len(c.get(st, []))} caminos en el ASM y {len(lista)} filas en la UC")
-    return errores, caminos
+def revisar_todo(uc):
+    """Revisa los dos ASM contra las tablas de transiciones de uc_cd.py."""
+    e1, n1 = asm_bareiss().revisar(SENALES_P, uc.FILAS_P, uc.fila_de)
+    e2, n2 = asm_xs3().revisar(SENALES_V, uc.FILAS_V, uc.fila_de)
+    return e1 + e2, n1 + n2

@@ -30,7 +30,6 @@ architecture sim of tb_det_bareiss is
                dir_p    : in  STD_LOGIC_VECTOR (2 downto 0);
                final    : out STD_LOGIC;
                desborde : out STD_LOGIC;
-               latido   : out STD_LOGIC;
                an       : out STD_LOGIC_VECTOR (7 downto 0);
                seg      : out STD_LOGIC_VECTOR (6 downto 0);
                dp       : out STD_LOGIC);
@@ -47,7 +46,7 @@ architecture sim of tb_det_bareiss is
     signal rst      : std_logic := '1';
     signal inicio   : std_logic := '0';
     signal dir_p    : std_logic_vector(2 downto 0) := "000";
-    signal final, desborde, latido, dp : std_logic;
+    signal final, desborde, dp : std_logic;
     signal an       : std_logic_vector(7 downto 0);
     signal seg      : std_logic_vector(6 downto 0);
     signal dir_tb   : std_logic_vector(4 downto 0) := "00000";
@@ -78,7 +77,7 @@ begin
 
     uut : det_bareiss port map (
         clk => clk, rst => rst, inicio => inicio, dir_p => dir_p, final => final,
-        desborde => desborde, latido => latido, an => an, seg => seg, dp => dp);
+        desborde => desborde, an => an, seg => seg, dp => dp);
 
     U_ROM_TB : rom_matriz port map (dira => dir_tb, a => a_tb);
 
