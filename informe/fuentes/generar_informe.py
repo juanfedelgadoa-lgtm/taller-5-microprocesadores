@@ -799,60 +799,97 @@ when s12 =>                         -- division por restas sucesivas: r = r - p
     inf.P(f"La caja negra generada por ISE debe tener los mismos puertos de la {inf.F('cn_sis')}: `clk`, `rst`, "
           f"`inicio` y `dir_p[2:0]` como entradas, y `seg[6:0]`, `an[7:0]`, `dp`, `final` y `desborde` como "
           f"salidas.")
-    inf.H2("2. Caja gris del circuito generada por ISE")
-    inf.hueco("rtl_proc", "Caja gris del procesador generada por ISE (RTL de `procesador_bareiss`)",
-              "[ Pegar aquí la captura del RTL de procesador_bareiss (doble clic sobre el bloque U_PROC) ]", alto=7)
-    inf.P("En el esquema RTL del procesador se deben ver la ROM de la matriz, las dos instancias de RAM_memory "
-          "(RAM A y RAM B), el multiplicador, el restador, los comparadores, los registros con sus multiplexores y "
-          "la unidad de control como una FSM.")
-    inf.hueco("rtl_fsm", "FSM de la unidad de control generada por ISE",
+    inf.H2("2. Caja gris del procesador generada por ISE")
+    inf.P(f"El esquema RTL de `procesador_bareiss` (Synthesize – XST → View RTL Schematic) es demasiado grande "
+          f"para leerlo en una página. Por eso, en la {inf.T('rtl_bloques')} se listan los bloques que XST "
+          f"infirió, tomados del reporte de síntesis del procesador (secciones HDL Synthesis y Advanced HDL "
+          f"Synthesis).")
+    inf.tabla("rtl_bloques", "Bloques del procesador según el reporte de síntesis de XST",
+              ["Bloque", "Tamaño", "Línea del VHDL", "Uso"],
+              [["ROM de la matriz (`a`)", "32 × 6, solo lectura", "107", "Matriz en complemento a 2 (S0, S1)"],
+               ["RAM A y RAM B (`RAM_memory`)", "2 de 32 × 32, lectura asíncrona", "140–143",
+                "Leer a(i,j) y a(k,j) en el mismo ciclo"],
+               ["Multiplicador", "25 × 25 → 50 bits", "275", "`X * Y` en S8 y S9"],
+               ["Restador", "50 bits", "306", "`R − S` en S10 y S12"],
+               ["Contador ascendente/descendente", "32 bits", "308, 310", "Cociente de la división (S12)"],
+               ["Sumador de `dira`", "5 bits", "208", "Dirección de la ROM (S1)"],
+               ["Sumadores de K, J e I", "3 bits", "226, 314, 317", "Índices"],
+               ["Comparador R = T", "50 bits", "150", "Fin de la división (rt)"],
+               ["Comparadores DIR_P = N, I = N, J = N, K + 1 = N", "3 bits", "165, 243, 256, 297",
+                "Señales de estado y selección del pivote"],
+               ["Multiplexor de `pivote`", "32 bits, 7 a 1", "165", "Elige det o un pivote con `dir_p`"],
+               ["Registros", "539 flip-flops en 22 registros", "—",
+                "Camino de datos; XST quita 7 (aik_25 … aik_31) y quedan 532"],
+               ["FSM_0 (`st`)", "14 estados, 4 flip-flops", "50", "Unidad de control"]],
+              [5.0, 3.9, 2.6, 5.0], tam=8.5, centrar=(2,))
+    inf.P("El multiplicador y el restador de 50 bits aparecen una sola vez: los dos productos y todas las restas "
+          "de Bareiss usan las mismas unidades.")
+    inf.hueco("rtl_fsm", "FSM de la unidad de control en el esquema RTL de ISE (bloque `FSM_0-parent`). El RTL "
+              "dibuja un flip-flop por estado (FFd1 a FFd14); la implementación final usa 4 flip-flops "
+              "(`st[1:4]`)",
               "[ Pegar aquí la captura de la FSM del procesador (bloque FSM dentro de U_PROC) ]", alto=6)
-    inf.P(f"El reporte de síntesis de XST reconoció la FSM del procesador con 14 estados, {n_trans} transiciones y "
-          f"7 entradas, que son `inicio` y las seis señales de estado que cambian el estado siguiente (la ROM de "
-          f"entrada de la sección 6). La codificó en binario (s0 = 0000 … s13 = 1101), es decir, con los cuatro "
-          f"flip-flops del registro de estado. También reconoció la FSM del visualizador con 6 estados, "
-          f"{n_trans_v} transiciones y 3 entradas. En la {inf.F('rtl_fsm')}, ISE genera para la FSM una palabra de "
-          f"control de ==[completar]== bits de salida.")
+    inf.P(f"El reporte de síntesis de XST reconoció la FSM del procesador (FSM_0, señal `st`) con 14 estados, "
+          f"{n_trans} transiciones, 7 entradas y 9 salidas, con reloj por flanco de subida y reset asíncrono que "
+          f"lleva a s0. Las 7 entradas son `inicio` y las seis señales de estado que cambian el estado siguiente "
+          f"(z_b, z_a, i_n, j_n, k1_n y rt), las mismas de la ROM de entrada de la sección 6.")
+    inf.P(f"En la {inf.F('rtl_fsm')} se ven 14 flip-flops (FFd1 a FFd14, uno por estado) porque ISE dibuja el "
+          f"esquema RTL antes de elegir la codificación de la FSM. Después, en la optimización, el reporte dice "
+          f"`Optimizing FSM <FSM_0> on signal <st[1:4]> with user encoding`: XST usa la codificación del "
+          f"usuario, que es el orden en que se declararon los estados en el tipo `estados_asm` (s0 = 0000, "
+          f"s1 = 0001 … s13 = 1101). Así, el registro de estado queda de 4 flip-flops, como en la UC de la "
+          f"sección 6. El conteo de registros lo confirma: el Final Register Report da 536 flip-flops para el "
+          f"procesador, 532 del camino de datos y 4 del estado; si el estado usara 14 flip-flops serían 546. "
+          f"Según el reporte, ISE genera para la FSM una palabra de control de ==9== bits de salida.")
+    inf.P(f"En la síntesis del diseño completo (`det_bareiss`), XST reconoció además la FSM del visualizador "
+          f"(FSM_1, señal `xs`) con 6 estados, {n_trans_v} transiciones, 3 entradas y 3 salidas.")
 
     inf.H2("3. Estadísticas de ISE")
     inf.leyenda("Tabla", "ise", "Recursos y tiempos según los reportes de síntesis, Map y Place & Route de ISE "
                 "(XC7A100T-1CSG324)")
     filas_ise = [
-        ["Slice Registers (flip-flops)", "702", "126 800", "1 %"],
-        ["Slice LUTs", "878", "63 400", "1 %"],
-        ["LUT usadas como RAM (RAM A y RAM B)", "48", "19 000", "1 %"],
-        ["Slices ocupados", "303", "15 850", "1 %"],
-        ["IOB", "24", "210", "11 %"],
-        ["BUFG", "1", "32", "3 %"],
-        ["DSP48E1 (multiplicador 25 × 25)", "2", "240", "1 %"],
-        ["Periodo mínimo estimado (síntesis)", "7,012 ns (142,6 MHz)", "10 ns (reloj de 100 MHz)", "70 % del periodo"],
+        ["Slice Registers (flip-flops)", "702", "126 800", "0,6 %"],
+        ["Slice LUTs", "878", "63 400", "1,4 %"],
+        ["LUT usadas como RAM (RAM A y RAM B)", "48", "19 000", "0,3 %"],
+        ["Slices ocupados", "303", "15 850", "1,9 %"],
+        ["IOB", "24", "210", "11,4 %"],
+        ["BUFG", "1", "32", "3,1 %"],
+        ["DSP48E1 (multiplicador 25 × 25)", "2", "240", "0,8 %"],
+        ["Periodo mínimo estimado por XST", "7,012 ns (142,6 MHz)", "10 ns (reloj de 100 MHz)",
+         "70,1 % del periodo"],
         ["Holgura de setup después de Place & Route", "1,206 ns", "—", "—"],
         ["Holgura de hold", "0,058 ns", "—", "—"],
         ["Restricción TS_sys_clk = 10 ns", "Cumplida", "—", "—"],
     ]
     inf.tabla(None, None, ["Parámetro", "Usado", "Disponible", "Porcentaje de uso"],
-              [[f[0], f"=={f[1]}==", f"=={f[2]}==" if f[2] == "19 000" else f[2],
-                f"=={f[3]}==" if f[3] != "—" else f[3]] for f in filas_ise], [6.3, 3.7, 3.7, 2.8], tam=9,
-              centrar=(1, 2, 3), negrita_col0=True)
-    inf.P("A partir de los reportes se observa que el diseño ocupa cerca del 1 % de la FPGA. XST reconoció una "
-          "sola FSM de 14 estados para el procesador, que corresponde al ASM, e infirió un solo multiplicador de "
-          "25 × 25 bits (que en la Artix-7 ocupa 2 bloques DSP48E1), un solo restador de 50 bits, el contador "
-          "ascendente/descendente de 32 bits del cociente y las dos RAM como RAM distribuida (con LUT), porque el "
-          "modelo del curso tiene lectura asíncrona. Así se confirma que se cumple la restricción de un solo "
-          "multiplicador y un solo sumador/restador.")
-    inf.P("En cuanto al desempeño temporal, la síntesis estima un periodo mínimo de 7,0 ns y, después de Place & "
-          "Route, el camino más lento deja 1,2 ns de holgura con el reloj de 100 MHz de la tarjeta, así que se "
-          "cumplen todas las restricciones. La diferencia con la estimación de la síntesis es el retardo de las "
-          "rutas, que XST no conoce.")
+              filas_ise, [6.3, 3.7, 3.7, 2.8], tam=9, centrar=(1, 2, 3), negrita_col0=True)
+    inf.P("Según los reportes, el diseño ocupa menos del 2 % de los slices de la FPGA; el recurso que más usa son "
+          "los pines (11,4 % de los IOB). Los flip-flops de la tabla son los que cuenta Map (702). El Final "
+          "Register Report de XST da 694 para el diseño completo; son reportes de etapas distintas y Map puede "
+          "añadir o duplicar registros al mapear el diseño en la FPGA.")
+    inf.P("XST reconoció una sola FSM de 14 estados para el procesador, que corresponde al ASM, e infirió un solo "
+          "multiplicador de 25 × 25 bits (en la Artix-7 ocupa 2 bloques DSP48E1) y un solo restador de 50 bits "
+          "para los datos de la matriz. Los demás sumadores son de 3 y 5 bits, para los índices y la dirección de "
+          "la ROM, y el cociente usa un contador ascendente/descendente de 32 bits. Las dos RAM quedan como RAM "
+          "distribuida (con LUT), porque el modelo del curso tiene lectura asíncrona. Así se confirma que se "
+          "cumple la restricción de un solo multiplicador y un solo sumador/restador.")
+    inf.P("En cuanto al desempeño temporal, XST estima un periodo mínimo de 7,012 ns. Su camino crítico va del "
+          "registro X al registro R a través del multiplicador (los dos DSP48E1 en cascada), y el 88 % de ese "
+          "retardo es lógica, porque XST solo estima 0,83 ns de rutas. Después de Place & Route la holgura de "
+          "setup es de 1,206 ns, es decir, el camino más lento tarda unos 8,8 ns (10 − 1,206): los retardos "
+          "reales de las rutas alargan el camino. Aun así se cumple la restricción TS_sys_clk = 10 ns y la "
+          "holgura de hold (0,058 ns) es positiva, así que el diseño funciona con el reloj de 100 MHz de la "
+          "tarjeta.")
     inf.tabla("avisos", "Advertencias e informaciones de ISE y su explicación",
               ["Mensaje", "Explicación"],
-              [["Xst:2677: aik<31:25> sin conexión", "El multiplicador solo usa los 25 bits bajos de AIK; XST quita "
-                "los 7 bits altos. No afecta el resultado."],
-               ["Par:288 y PhysDesignRules:367 (señales RAMD_D1_O sin carga)", "Salidas de la RAM distribuida que "
-                "no se usan."],
+              [["Xst:2677: aik_25 … aik_31 sin conexión", "El multiplicador solo usa los 25 bits bajos de AIK; XST "
+                "quita los 7 flip-flops de los bits altos. No afecta el resultado."],
+               ["Par:288 y PhysDesignRules:367 (señales RAMD_D1_O sin carga)", "La salida de lectura del puerto D "
+                "de cada RAM32M no se usa, porque las RAM solo leen por los otros puertos. Sale un aviso por cada "
+                "uno de los 10 RAM32M de las dos RAM."],
                ["INFO HDLCompiler:679: `others` nunca se selecciona", "En el visualizador los 6 estados ya están en "
                 "el case; el `when others` sobra pero no hace daño."],
-               ["INFO Xst:3218: RAM distribuida", "La RAM del curso tiene lectura asíncrona, por eso se arma con LUT."],
+               ["INFO Xst:3218: RAM distribuida", "Aparece para las dos RAM (`Mram_ram_blk`) y para la ROM "
+                "(`Mram_a`): como tienen lectura asíncrona, XST las arma con LUT y no con bloques de RAM."],
                ["Security:42", "Aviso de licencia de ISE; no tiene que ver con el diseño."]],
               [6.0, 10.5], tam=8.5)
 
